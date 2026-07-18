@@ -1,0 +1,29 @@
+{
+  "name": "luxledger-demo-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "bootstrap:admin-key": "bun run src/bootstrap-admin-key.ts"
+  },
+  "dependencies": {
+    "@luxledger/core": "^0.1.0",
+    "@luxledger/fastify-routes": "^0.1.0",
+    "@luxledger/http": "^0.1.0",
+    "@luxledger/postgres-adapter": "^0.1.1",
+    "drizzle-orm": "0.45.1",
+    "fastify": "5.7.4",
+    "postgres": "3.4.8",
+    "safe-stable-stringify": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.12.0",
+    "bun-types": "1.3.9",
+    "drizzle-kit": "0.31.9",
+    "typescript": "5.9.3"
+  }
+}
