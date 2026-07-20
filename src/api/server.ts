@@ -16,7 +16,7 @@ import {
   type AuthTokenResponse,
   authTokenResponseSchema,
 } from '@luxledger/http/contracts';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { LogController, type FastifyInstance } from 'fastify';
 
 const API_KEY_HEADER = 'x-api-key';
 const BEARER_PREFIX = 'Bearer ';
@@ -125,9 +125,11 @@ const resolveRateLimitTarget = (
 export const createServerCore = (options: CreateServerCoreOptions): FastifyInstance => {
   const server = Fastify({
     logger: options.logger,
-    disableRequestLogging: true,
+    logController: new LogController({
+      disableRequestLogging: true,
+      requestIdLogLabel: 'requestId',
+    }),
     requestIdHeader: 'x-request-id',
-    requestIdLogLabel: 'requestId',
     genReqId: (request) => {
       const headerValue = request.headers['x-request-id'];
       if (typeof headerValue === 'string' && headerValue.length > 0) {
