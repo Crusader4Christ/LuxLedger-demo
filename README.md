@@ -12,9 +12,9 @@ Reference REST API built on top of the LuxLedger packages.
 
 1. Start PostgreSQL: `docker compose up -d`
 2. Copy environment defaults: `cp .env.example .env`
-3. Install dependencies: `bun install`
-4. Run migrations: `bun run db:migrate`
-5. Start the API: `bun run dev`
+3. Install dependencies: `npm install`
+4. Run migrations: `npm run db:migrate`
+5. Start the API: `npm run dev`
 
 The demo installs LuxLedger packages from the public npm registry.
 

@@ -1,4 +1,5 @@
 import { createApiKeyService, createDbClient } from '@luxledger/postgres-adapter';
+import { isMainModule } from './utils/is-main-module';
 
 const requireEnv = (name: string): string => {
   const value = process.env[name];
@@ -40,6 +41,6 @@ export const run = async (): Promise<void> => {
   }
 };
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   await run();
 }

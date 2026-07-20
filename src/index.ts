@@ -1,6 +1,7 @@
 import { parseJwtAuthConfig } from '@api/auth/policy';
 import { parseRateLimitConfig } from '@api/rate-limit/policy';
 import { createServerCore, registerApplication } from '@api/server';
+import { isMainModule } from './utils/is-main-module';
 import { createApplicationServices, createDbClient } from '@luxledger/postgres-adapter';
 
 const parsePort = (value: string | undefined): number => {
@@ -99,6 +100,6 @@ export const run = async (): Promise<void> => {
   }
 };
 
-if (import.meta.main) {
+if (isMainModule(import.meta.url)) {
   await run();
 }
