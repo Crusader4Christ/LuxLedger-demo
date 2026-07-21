@@ -1,4 +1,5 @@
 import { parseJwtAuthConfig } from '@api/auth/policy';
+import { restoreAdapterDomainErrors } from '@api/errors/restore-adapter-domain-errors';
 import { parseRateLimitConfig } from '@api/rate-limit/policy';
 import { createServerCore, registerApplication } from '@api/server';
 import { isMainModule } from './utils/is-main-module';
@@ -40,7 +41,7 @@ export const run = async (): Promise<void> => {
     },
     logger: true,
   });
-  const services = createApplicationServices(dbClient);
+  const services = restoreAdapterDomainErrors(createApplicationServices(dbClient));
   registerApplication(server, {
     services,
     jwtAuth: parseJwtAuthConfig(process.env),
