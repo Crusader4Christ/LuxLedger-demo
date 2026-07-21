@@ -69,7 +69,7 @@ There are three layers:
 2. Core domain/application errors carry stable `code`, `message`, HTTP status, and optional `details`; the demo preserves these fields.
 3. Unknown or persistence failures are logged with request context and returned as `500 INTERNAL_ERROR` without leaking internals.
 
-`@luxledger/postgres-adapter@0.1.2` can wrap a valid 4xx domain cause as a repository error when it crosses different public core exports. The demo composition layer narrowly restores a structurally valid 4xx cause before the Fastify adapter maps it; it never unwraps 5xx or unknown database errors.
+The coordinated package set uses the canonical structural `isDomainError` guard across public export identities. The PostgreSQL and HTTP boundaries preserve valid domain statuses while continuing to hide raw database and unknown errors as non-leaking `500 INTERNAL_ERROR` responses; no demo-specific error restoration is required.
 
 Authentication errors map to `401 UNAUTHORIZED`, authorization to `403 FORBIDDEN`, missing resources normally to `404`, state conflicts to `409`, and rate limits to `429 RATE_LIMIT_EXCEEDED` with both `Retry-After` and `retry_after_seconds`. Every response includes `x-request-id`; a client-supplied `x-request-id` is retained for correlation.
 

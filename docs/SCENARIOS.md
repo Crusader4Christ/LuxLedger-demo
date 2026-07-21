@@ -92,6 +92,16 @@ Expected `HTTP 400`:
 
 The original transaction and balances remain unchanged.
 
+Description is also part of transaction identity in `postgres-adapter@0.1.3`. Retry the original amount and entries with a changed description:
+
+```sh
+api -X POST -H 'content-type: application/json' \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Changed description\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"}]}" \
+  "$BASE_URL/v1/transactions"
+```
+
+Expected `HTTP 400` with the same payload-mismatch body. Entry order alone is not a mismatch, while entry multiplicity remains significant.
+
 ## Bulk posting and atomic rollback
 
 First post two valid items atomically:

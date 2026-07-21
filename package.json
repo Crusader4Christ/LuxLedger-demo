@@ -11,10 +11,10 @@
     "bootstrap:admin-key": "tsx src/bootstrap-admin-key.ts"
   },
   "dependencies": {
-    "@luxledger/core": "^0.1.0",
-    "@luxledger/fastify-routes": "^0.1.1",
-    "@luxledger/http": "^0.1.0",
-    "@luxledger/postgres-adapter": "^0.1.2",
+    "@luxledger/core": "0.1.1",
+    "@luxledger/fastify-routes": "0.1.2",
+    "@luxledger/http": "0.1.1",
+    "@luxledger/postgres-adapter": "0.1.3",
     "drizzle-orm": "0.45.2",
     "fastify": "5.10.0",
     "postgres": "3.4.8",
