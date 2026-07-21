@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:local": "node --env-file=.env --watch --import tsx src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
-    "bootstrap:admin-key": "tsx src/bootstrap-admin-key.ts"
+    "db:migrate:local": "node --env-file=.env node_modules/drizzle-kit/bin.cjs migrate",
+    "bootstrap:admin-key": "tsx src/bootstrap-admin-key.ts",
+    "bootstrap:admin-key:local": "node --env-file=.env --import tsx src/bootstrap-admin-key.ts"
   },
   "dependencies": {
     "@luxledger/core": "0.1.1",

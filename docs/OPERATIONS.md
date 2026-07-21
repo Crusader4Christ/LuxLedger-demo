@@ -2,7 +2,7 @@
 
 ## Environment variables
 
-The demo reads process environment directly. For local commands, set `NODE_OPTIONS=--env-file=.env`; production runtimes should inject secrets/configuration through their normal secret manager.
+The demo reads process environment directly. Node forbids `--env-file` in `NODE_OPTIONS`, so local `*:local` npm scripts pass `--env-file=.env` directly to the Node executable. Production runtimes should inject secrets/configuration through their normal secret manager and use the non-local scripts.
 
 | Variable | Required/default | Constraints and purpose |
 | --- | --- | --- |
@@ -68,15 +68,14 @@ If the total exceeds `SHUTDOWN_TIMEOUT_MS` (default 10 seconds), the hard-stop t
 Migrations are versioned SQL under `drizzle/`; Drizzle state is under `drizzle/meta/`. Run from the exact application release with the same `DATABASE_URL`:
 
 ```sh
-export NODE_OPTIONS="--env-file=.env"
 npm ci
-npm run db:migrate
+npm run db:migrate:local
 ```
 
 For a release:
 
 1. back up the database and test restore;
-2. compare package/OpenAPI versions with the [versioned checklist](releases/0.2.0.md);
+2. compare installed package versions and the canonical OpenAPI contract with the target LuxLedger release;
 3. rehearse migration against a production-like copy;
 4. quiesce incompatible writers if a future migration requires it;
 5. run migrations once as a release job, not independently in every replica;

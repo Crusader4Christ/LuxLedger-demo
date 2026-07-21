@@ -24,20 +24,14 @@ sed -i.bak "s|REPLACE_WITH_BASE64URL_32_BYTE_SECRET|$JWT_SIGNING_KEY|" .env
 rm .env.bak
 ```
 
-Node does **not** read `.env` automatically. Load it for every npm command in this shell:
-
-```sh
-export NODE_OPTIONS="--env-file=.env"
-```
-
-Do not use `source .env`: secrets or values containing shell metacharacters need not be valid shell syntax. Node's `--env-file` parser is the supported path for this demo.
+Node does **not** read `.env` automatically, and Node forbids `--env-file` inside `NODE_OPTIONS`. The `*:local` npm scripts below pass `--env-file=.env` directly to Node. Do not use `source .env`: secrets or values containing shell metacharacters need not be valid shell syntax.
 
 ### 2. Start PostgreSQL and migrate
 
 ```sh
 docker compose up -d postgres
 docker compose exec postgres pg_isready -U luxledger -d luxledger
-npm run db:migrate
+npm run db:migrate:local
 ```
 
 Expected readiness output ends with `accepting connections`; migration output ends successfully with `migrations applied successfully` (or reports that there is nothing left to migrate).
@@ -47,7 +41,7 @@ Expected readiness output ends with `accepting connections`; migration output en
 `.env.example` supplies demo-only bootstrap values. Replace `BOOTSTRAP_ADMIN_API_KEY` before any shared deployment.
 
 ```sh
-npm run bootstrap:admin-key
+npm run bootstrap:admin-key:local
 ```
 
 Expected first-run result (`tenantId` and `apiKeyId` vary):
@@ -65,7 +59,7 @@ Bootstrap is deliberately one-shot for the database. A retry prints `Bootstrap s
 ### 4. Start and probe the API
 
 ```sh
-npm run dev
+npm run dev:local
 ```
 
 In a second shell:
@@ -218,7 +212,6 @@ Representative bodies (IDs/timestamps vary), each followed by `200`:
 - [Scenario cookbook](docs/SCENARIOS.md): failure modes, bulk atomicity, reversal/correction, holds, backdating, and reconciliation.
 - [Operations guide](docs/OPERATIONS.md): environment, probes, metrics, shutdown, migrations, and production limitations.
 - [Architecture](ARCHITECTURE.md): package boundaries, tenancy, transactions, error mapping, and deployment.
-- [Release checklist](docs/releases/0.2.0.md): pinned package/spec versions and drift/link/walkthrough checks.
 - Upstream references: [product overview](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/product/overview.md), [ledger invariants](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/product/invariants.md), and [known limitations](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/product/limitations.md).
 - Raw contract: `GET /openapi.yaml`; Swagger UI: `GET /docs` (its assets load from a public CDN).
 
