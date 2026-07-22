@@ -98,7 +98,7 @@ This is an integration demo and reusable financial-core composition, not a hoste
 - only PostgreSQL 16 is supported; alternative persistence adapters are not implemented;
 - reporting is limited to the documented ledger, entry, balance-history, and trial-balance surfaces;
 - no asynchronous job system/webhooks for reconciliation and no file parser—the caller sends normalized external records;
-- no UI, customer identity system, API-key self-service, fine-grained roles, or tenant lifecycle endpoints;
+- the bundled UI is a local reference transfer demo, not a customer identity system, API-key self-service surface, fine-grained authorization system, or tenant lifecycle console;
 - no claim of regulatory, accounting-standard, PCI, or jurisdictional compliance.
 
 Core records are not soft-deleted. Reversal/correction are the supported way to preserve immutable posting history. Features absent from the canonical OpenAPI contract must not be inferred from package internals.

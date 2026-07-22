@@ -1,6 +1,8 @@
 import { parseJwtAuthConfig } from '@api/auth/policy';
 import { parseRateLimitConfig } from '@api/rate-limit/policy';
 import { createServerCore, registerApplication } from '@api/server';
+import { DemoService } from './demo/demo-service';
+import { registerDemoRoutes } from './demo/routes';
 import { isMainModule } from './utils/is-main-module';
 import { createApplicationServices, createDbClient } from '@luxledger/postgres-adapter';
 
@@ -46,6 +48,12 @@ export const run = async (): Promise<void> => {
     jwtAuth: parseJwtAuthConfig(process.env),
     rateLimit: parseRateLimitConfig(process.env),
   });
+  const demo = new DemoService(dbClient, services, {
+    adminApiKey: process.env.BOOTSTRAP_ADMIN_API_KEY ?? '',
+    adminKeyName: process.env.BOOTSTRAP_ADMIN_KEY_NAME ?? 'Initial admin key',
+    tenantName: process.env.BOOTSTRAP_TENANT_NAME ?? 'Demo tenant',
+  });
+  registerDemoRoutes(server, demo, { resetEnabled: process.env.NODE_ENV !== 'production' });
   const port = parsePort(process.env.PORT);
   const shutdownTimeoutMs = parseShutdownTimeout(process.env.SHUTDOWN_TIMEOUT_MS);
 

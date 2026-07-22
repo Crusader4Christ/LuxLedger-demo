@@ -1,6 +1,8 @@
-# LuxLedger Demo API
+# LuxLedger Demo
 
-Runnable reference API for prospects evaluating LuxLedger and integrators learning how to compose `@luxledger/core`, Fastify, Drizzle, and PostgreSQL. The checked-in contract is [OpenAPI 0.2.0](openapi/openapi.yaml).
+Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.2.0](openapi/openapi.yaml).
+
+The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
 The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact released package set installed by the demo.
 
@@ -25,6 +27,18 @@ rm .env.bak
 ```
 
 Node does **not** read `.env` automatically, and Node forbids `--env-file` inside `NODE_OPTIONS`. The `*:local` npm scripts below pass `--env-file=.env` directly to Node. Do not use `source .env`: secrets or values containing shell metacharacters need not be valid shell syntax.
+
+### One-command demo
+
+After the initial install and `.env` setup above, start PostgreSQL, apply migrations, start API and web, and reset the deterministic dataset with:
+
+```sh
+npm run demo
+```
+
+When `LuxLedger demo is ready` appears, open `http://localhost:5173`. Stop API and web with `Ctrl+C`; PostgreSQL remains available for the next run.
+
+The steps below describe the same setup individually for readers learning how the backend is composed.
 
 ### 2. Start PostgreSQL and migrate
 
@@ -77,6 +91,48 @@ Both return `HTTP/1.1 200 OK` and:
 ```
 
 `/health` proves the process is serving. `/ready` also runs `select 1` against PostgreSQL and returns `503` with `{"error":"NOT_READY","message":"Service not ready"}` when the database is unavailable.
+
+### 5. Seed and open the transfer demo
+
+With the API running, create the deterministic local dataset:
+
+```sh
+curl -sS -X POST http://localhost:3000/demo/reset
+```
+
+This creates `wallet:alice` with USD 100.00, `wallet:bob` with USD 0.00, and a hidden system funding account. Reset is disabled when `NODE_ENV=production` and is intended only for the isolated demo database.
+
+Start the web workspace in a second shell:
+
+```sh
+npm run dev:web
+```
+
+Open `http://localhost:5173`. Create another address or transfer USD 25.00 from Alice to Bob. The UI shows the resulting balances and the two entries recorded by LuxLedger.
+
+For API and web together after the database has been migrated:
+
+```sh
+npm run dev:local
+```
+
+## Automated verification
+
+Install the Playwright browser once:
+
+```sh
+npx playwright install chromium
+```
+
+Then run the complete verification pipeline:
+
+```sh
+npm test
+```
+
+It runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies `reset → transfer → balances/entries` through the API, and repeats the flow through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
+
+Individual commands are `npm run test:integration` and `npm run test:e2e`.
 
 ## Copy/paste ledger walkthrough
 
