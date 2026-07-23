@@ -1,5 +1,10 @@
 /dist
+**/dist
+*.tsbuildinfo
+/playwright-report
+/test-results
 /node_modules
+**/node_modules
 /build
 /tmp
 

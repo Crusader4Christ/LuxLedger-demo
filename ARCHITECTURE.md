@@ -8,7 +8,7 @@ This repository is a composition root, not a second implementation of ledger rul
 client
   │ HTTP + JWT
   ▼
-demo (src/index.ts, src/api/*)
+demo API (apps/api/src/index.ts, apps/api/src/api/*)
   ├─ process lifecycle, configuration, auth/rate-limit hooks, probes, metrics
   └─ registers @luxledger/fastify-routes
                 │ validates/translates transport
@@ -35,6 +35,14 @@ demo (src/index.ts, src/api/*)
 - **Demo boundary:** environment parsing, dependency wiring, authentication hooks, in-process rate limiting/metrics, public documentation routes, and process shutdown.
 
 Changes to business rules belong in the relevant LuxLedger package. Demo code should remain wiring or operations code unless a demo-specific defect is proven.
+
+## Reference application layer
+
+`apps/api/src/demo` is a deliberately small example application built on the public LuxLedger application services. It maps human-readable addresses such as `wallet:alice` to LuxLedger accounts, creates balanced funding and transfer transactions, and presents balances and entries to `apps/web`.
+
+The browser calls only `/demo/*`. It never receives the bootstrap API key or a LuxLedger access token. Canonical `/v1/*` routes remain registered by `@luxledger/fastify-routes` for direct API integrations, while the demo routes illustrate how a product-specific application layer can compose the same services in-process.
+
+`POST /demo/reset` is intentionally disabled when `NODE_ENV=production`. It truncates and recreates the isolated local demo dataset and must never be enabled against a shared or production database.
 
 ## Tenancy and authentication flow
 
