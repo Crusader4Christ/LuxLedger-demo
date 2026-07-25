@@ -11,7 +11,7 @@ The demo reads process environment directly. Node forbids `--env-file` in `NODE_
 | `DB_POOL_MAX` | `10` | Positive integer maximum connections in the process-local PostgreSQL pool. |
 | `DB_IDLE_TIMEOUT` | `20` | Positive integer idle connection timeout in seconds. |
 | `DB_CONNECT_TIMEOUT` | `10` | Positive integer connection timeout in seconds. |
-| `NODE_ENV` | `development` in example | Runtime mode passed to dependencies; the demo does not branch on it directly. |
+| `NODE_ENV` | `development` in example | `production` disables the browser-accessible demo reset route. |
 | `PORT` | `3000` | Positive integer; server binds `0.0.0.0`. |
 | `SHUTDOWN_TIMEOUT_MS` | `10000` | Positive integer hard deadline for graceful shutdown. |
 | `JWT_SIGNING_KEY` | **Required** | Unpadded base64url encoding of at least 32 random bytes. Secret. |
@@ -25,7 +25,7 @@ The demo reads process environment directly. Node forbids `--env-file` in `NODE_
 | `RATE_LIMIT_WRITE_WINDOW_SECONDS` | `60` | Positive integer fixed-window size. |
 | `BOOTSTRAP_TENANT_NAME` | **Required by bootstrap only** | Initial tenant display name. |
 | `BOOTSTRAP_ADMIN_KEY_NAME` | `Initial admin key` | Initial key display name. |
-| `BOOTSTRAP_ADMIN_API_KEY` | **Required by bootstrap only** | Raw initial admin key. Secret; choose a high-entropy value in shared environments. |
+| `BOOTSTRAP_ADMIN_API_KEY` | **Required by bootstrap and demo seed** | Raw initial admin key. Secret; choose a high-entropy value in shared environments. |
 
 Unknown variables are ignored. Configuration is validated at process startup; invalid values fail fast.
 
@@ -104,3 +104,7 @@ This is an integration demo and reusable financial-core composition, not a hoste
 Core records are not soft-deleted. Reversal/correction are the supported way to preserve immutable posting history. Features absent from the canonical OpenAPI contract must not be inferred from package internals.
 
 Before production use, threat-model the deployment, pin exact package versions, establish database/audit/retention controls, and validate the domain model against the intended accounting policy.
+
+For a private, single-instance sales environment, use the narrower
+[hosted demo runbook](HOSTED_DEMO.md). It keeps reset out of the public HTTP surface and packages
+the existing MVP without claiming production SaaS readiness.

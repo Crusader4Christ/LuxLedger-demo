@@ -54,7 +54,11 @@ export function App() {
     <main>
       <header>
         <div className="brand"><span className="mark">L</span> LuxLedger</div>
-        <button className="secondary" disabled={busy} onClick={() => void run(demoApi.reset)}>Reset demo</button>
+        {state?.reset_enabled && (
+          <button className="secondary" disabled={busy} onClick={() => void run(demoApi.reset)}>
+            Reset demo
+          </button>
+        )}
       </header>
 
       <section className="hero">

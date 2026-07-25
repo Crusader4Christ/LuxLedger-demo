@@ -48,12 +48,14 @@ export const run = async (): Promise<void> => {
     jwtAuth: parseJwtAuthConfig(process.env),
     rateLimit: parseRateLimitConfig(process.env),
   });
+  const resetEnabled = process.env.NODE_ENV !== 'production';
   const demo = new DemoService(dbClient, services, {
     adminApiKey: process.env.BOOTSTRAP_ADMIN_API_KEY ?? '',
     adminKeyName: process.env.BOOTSTRAP_ADMIN_KEY_NAME ?? 'Initial admin key',
     tenantName: process.env.BOOTSTRAP_TENANT_NAME ?? 'Demo tenant',
+    resetEnabled,
   });
-  registerDemoRoutes(server, demo, { resetEnabled: process.env.NODE_ENV !== 'production' });
+  registerDemoRoutes(server, demo, { resetEnabled });
   const port = parsePort(process.env.PORT);
   const shutdownTimeoutMs = parseShutdownTimeout(process.env.SHUTDOWN_TIMEOUT_MS);
 
