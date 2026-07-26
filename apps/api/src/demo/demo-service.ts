@@ -29,12 +29,17 @@ export class DemoNotReadyError extends Error {
 }
 
 export class DemoService {
-  private resetPromise: Promise<unknown> | null = null;
+  private resetPromise: ReturnType<DemoService['getState']> | null = null;
 
   constructor(
     private readonly db: DbClient,
     private readonly services: ApplicationServices,
-    private readonly config: { adminApiKey: string; adminKeyName: string; tenantName: string },
+    private readonly config: {
+      adminApiKey: string;
+      adminKeyName: string;
+      tenantName: string;
+      resetEnabled: boolean;
+    },
   ) {}
 
   async getState() {
@@ -46,6 +51,7 @@ export class DemoService {
     return {
       currency: CURRENCY,
       ledger_id: ledgerId,
+      reset_enabled: this.config.resetEnabled,
       accounts: accounts
         .filter((account) => account.name !== FUNDING_ADDRESS)
         .map((account) => ({
@@ -148,22 +154,45 @@ export class DemoService {
     await this.db.sql.unsafe(`truncate table recon_results, recon_runs, recon_records,
       recon_uploads, recon_rules, balance_snapshots, hold_entries, holds, entries,
       transactions, accounts, ledgers, api_keys, tenants restart identity cascade`);
+    return this.performSeed();
+  }
+
+  async seed() {
+    try {
+      return await this.getState();
+    } catch (error) {
+      if (!(error instanceof DemoNotReadyError)) {
+        throw error;
+      }
+    }
+    return this.performSeed();
+  }
+
+  private async performSeed() {
     const bootstrap = await this.services.apiKeys.bootstrapInitialAdmin({
       tenantName: this.config.tenantName,
       keyName: this.config.adminKeyName,
       rawApiKey: this.config.adminApiKey,
     });
-    if (!bootstrap.created || bootstrap.tenantId === undefined) {
+    const tenantId = bootstrap.created
+      ? bootstrap.tenantId
+      : (await this.services.apiKeys.authenticate(this.config.adminApiKey)).tenantId;
+    if (tenantId === undefined) {
       throw new Error('Unable to create the demo tenant');
     }
-    const ledger = await this.services.ledgers.create({ tenantId: bootstrap.tenantId, name: LEDGER_NAME });
+    let ledger = (await this.services.ledgers.list(tenantId)).find((item) => item.name === LEDGER_NAME);
+    ledger ??= await this.services.ledgers.create({ tenantId, name: LEDGER_NAME });
+    const existingAccounts = await this.accounts(tenantId, ledger.id);
     for (const account of [
       { name: FUNDING_ADDRESS, side: AccountSide.DEBIT, policy: OverdraftPolicy.ALLOW },
       { name: 'wallet:alice', side: AccountSide.CREDIT, policy: OverdraftPolicy.DISALLOW },
       { name: 'wallet:bob', side: AccountSide.CREDIT, policy: OverdraftPolicy.DISALLOW },
     ]) {
+      if (existingAccounts.some((candidate) => candidate.name === account.name)) {
+        continue;
+      }
       await this.services.accounts.create({
-        tenantId: bootstrap.tenantId,
+        tenantId,
         ledgerId: ledger.id,
         name: account.name,
         side: account.side,
@@ -171,7 +200,14 @@ export class DemoService {
         currency: CURRENCY,
       });
     }
-    await this.fund('wallet:alice', '10000', 'demo-seed-funding-alice-v1');
+    const transactions = await this.services.transactions.list({
+      tenantId,
+      ledgerId: ledger.id,
+      limit: 100,
+    });
+    if (!transactions.data.some((transaction) => transaction.reference === 'demo-seed-funding-alice-v1')) {
+      await this.fund('wallet:alice', '10000', 'demo-seed-funding-alice-v1');
+    }
     return this.getState();
   }
 

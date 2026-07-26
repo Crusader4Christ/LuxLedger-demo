@@ -23,6 +23,7 @@ export interface DemoState {
   accounts: DemoAccount[];
   currency: string;
   ledger_id: string;
+  reset_enabled: boolean;
   transactions: DemoTransaction[];
 }
 

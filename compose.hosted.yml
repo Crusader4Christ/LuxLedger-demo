@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: luxledger
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: luxledger_demo_hosted
+      TZ: UTC
+    volumes:
+      - hosted_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luxledger -d luxledger_demo_hosted"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      DB_IDLE_TIMEOUT: ${DB_IDLE_TIMEOUT:-20}
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-10}
+      NODE_ENV: production
+      PORT: 3000
+      SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
+      BOOTSTRAP_TENANT_NAME: ${BOOTSTRAP_TENANT_NAME:-Demo tenant}
+      BOOTSTRAP_ADMIN_KEY_NAME: ${BOOTSTRAP_ADMIN_KEY_NAME:-Hosted demo admin}
+      BOOTSTRAP_ADMIN_API_KEY: ${BOOTSTRAP_ADMIN_API_KEY:?BOOTSTRAP_ADMIN_API_KEY is required}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
+      JWT_PREVIOUS_SIGNING_KEYS: ${JWT_PREVIOUS_SIGNING_KEYS:-}
+      JWT_ISSUER: ${JWT_ISSUER:-luxledger-demo}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+      JWT_CLOCK_SKEW_SECONDS: ${JWT_CLOCK_SKEW_SECONDS:-5}
+      RATE_LIMIT_AUTH_TOKEN_MAX_REQUESTS: ${RATE_LIMIT_AUTH_TOKEN_MAX_REQUESTS:-20}
+      RATE_LIMIT_AUTH_TOKEN_WINDOW_SECONDS: ${RATE_LIMIT_AUTH_TOKEN_WINDOW_SECONDS:-60}
+      RATE_LIMIT_WRITE_MAX_REQUESTS: ${RATE_LIMIT_WRITE_MAX_REQUESTS:-120}
+      RATE_LIMIT_WRITE_WINDOW_SECONDS: ${RATE_LIMIT_WRITE_WINDOW_SECONDS:-60}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "${HOSTED_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  hosted_pgdata:

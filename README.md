@@ -134,6 +134,17 @@ It runs workspace typechecks and the production web build, recreates only the de
 
 Individual commands are `npm run test:integration` and `npm run test:e2e`.
 
+## Private hosted sales demo
+
+The repository includes a provider-neutral container deployment with a same-origin nginx proxy,
+production API settings, idempotent initial seed, and an operator-only guarded reset.
+
+- [Hosted demo runbook](docs/HOSTED_DEMO.md)
+- [Five-minute sales walkthrough](docs/SALES_WALKTHROUGH.md)
+
+The hosted profile is intended for guided sales calls behind HTTPS and access control. It is not
+a public multi-tenant SaaS environment.
+
 ## Copy/paste ledger walkthrough
 
 Keep the API running. In the second shell, load the same bootstrap key and define a JSON helper:
