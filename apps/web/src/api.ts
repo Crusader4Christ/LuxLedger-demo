@@ -29,8 +29,33 @@ export interface DemoState {
 
 export class DemoApiError extends Error {}
 
-const request = async (path: string, init?: RequestInit): Promise<DemoState> => {
-  const response = await fetch(path, init);
+export interface DemoRequest {
+  method: 'GET' | 'POST';
+  path: string;
+  body?: Record<string, string>;
+}
+
+export const demoRequests = {
+  state: (): DemoRequest => ({ method: 'GET', path: '/demo/state' }),
+  reset: (): DemoRequest => ({ method: 'POST', path: '/demo/reset' }),
+  createAccount: (address: string): DemoRequest => ({
+    method: 'POST',
+    path: '/demo/accounts',
+    body: { address },
+  }),
+  transfer: (from: string, to: string, amountMinor: string): DemoRequest => ({
+    method: 'POST',
+    path: '/demo/transfers',
+    body: { from, to, amount_minor: amountMinor },
+  }),
+};
+
+const request = async (operation: DemoRequest): Promise<DemoState> => {
+  const response = await fetch(operation.path, {
+    method: operation.method,
+    headers: operation.body === undefined ? undefined : { 'content-type': 'application/json' },
+    body: operation.body === undefined ? undefined : JSON.stringify(operation.body),
+  });
   const body = (await response.json()) as DemoState | { message?: string };
   if (!response.ok) {
     throw new DemoApiError('message' in body && body.message ? body.message : 'Demo request failed');
@@ -39,18 +64,18 @@ const request = async (path: string, init?: RequestInit): Promise<DemoState> => 
 };
 
 export const demoApi = {
-  state: () => request('/demo/state'),
-  reset: () => request('/demo/reset', { method: 'POST' }),
-  createAccount: (address: string) =>
-    request('/demo/accounts', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ address }),
-    }),
+  state: () => request(demoRequests.state()),
+  reset: () => request(demoRequests.reset()),
+  createAccount: (address: string) => request(demoRequests.createAccount(address)),
   transfer: (from: string, to: string, amountMinor: string) =>
-    request('/demo/transfers', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ from, to, amount_minor: amountMinor }),
-    }),
+    request(demoRequests.transfer(from, to, amountMinor)),
+};
+
+export const requestToCurl = (operation: DemoRequest, origin: string): string => {
+  const lines = [`curl -X ${operation.method} '${origin}${operation.path}'`];
+  if (operation.body !== undefined) {
+    lines.push("  -H 'content-type: application/json'");
+    lines.push(`  --data '${JSON.stringify(operation.body)}'`);
+  }
+  return lines.join(' \\\n');
 };

@@ -109,6 +109,8 @@ npm run dev:web
 ```
 
 Open `http://localhost:5173`. Create another address or transfer USD 25.00 from Alice to Bob. The UI shows the resulting balances and the two entries recorded by LuxLedger.
+It also shows the product-facing HTTP request, provides a copyable curl command, and links to the
+canonical Swagger/OpenAPI documentation.
 
 For API and web together after the database has been migrated:
 

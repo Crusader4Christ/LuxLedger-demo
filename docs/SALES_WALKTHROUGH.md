@@ -34,6 +34,9 @@ Expected result:
 - one LuxLedger transaction;
 - one USD 25.00 debit and one USD 25.00 credit.
 
+Scroll to “Request sent by this UI.” Show the JSON payload, then use **Copy curl** to demonstrate
+that the same product action can be reproduced from a terminal.
+
 ### 4. Explain the backend — 90 seconds
 
 Open the source or architecture diagram and show the composition:
@@ -46,7 +49,7 @@ Open the source or architecture diagram and show the composition:
 
 ### 5. Show the integration surface — 60 seconds
 
-Open `/docs`. Emphasize typed HTTP contracts, idempotent transaction references, tenant
+Use the **API docs** link to open `/docs`. Emphasize typed HTTP contracts, idempotent transaction references, tenant
 isolation, health/readiness, structured logs, and PostgreSQL transactions.
 
 Keep the conversation on the working MVP. Holds, reconciliation, customer identity, and a hosted

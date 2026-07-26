@@ -1,5 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { DemoApiError, demoApi, type DemoState } from './api';
+import {
+  DemoApiError,
+  demoApi,
+  demoRequests,
+  type DemoRequest,
+  type DemoState,
+  requestToCurl,
+} from './api';
 
 const formatMoney = (minor: string, currency: string): string => {
   const value = BigInt(minor);
@@ -14,6 +21,23 @@ const dollarsToMinor = (value: string): string | null => {
   return (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))).toString();
 };
 
+const copyText = async (value: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const field = document.createElement('textarea');
+    field.value = value;
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.append(field);
+    field.select();
+    const copied = document.execCommand('copy');
+    field.remove();
+    return copied;
+  }
+};
+
 export function App() {
   const [state, setState] = useState<DemoState | null>(null);
   const [from, setFrom] = useState('wallet:alice');
@@ -22,11 +46,15 @@ export function App() {
   const [newAddress, setNewAddress] = useState('wallet:carol');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState<DemoRequest>(demoRequests.state());
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const latest = useMemo(() => state?.transactions.at(-1) ?? null, [state]);
 
-  const run = async (action: () => Promise<DemoState>) => {
+  const run = async (operation: DemoRequest, action: () => Promise<DemoState>) => {
     setBusy(true);
     setError(null);
+    setCopyStatus('idle');
+    setLastRequest(operation);
     try {
       setState(await action());
     } catch (cause) {
@@ -37,7 +65,7 @@ export function App() {
   };
 
   useEffect(() => {
-    void run(demoApi.state);
+    void run(demoRequests.state(), demoApi.state);
   }, []);
 
   const submit = (event: FormEvent) => {
@@ -47,18 +75,32 @@ export function App() {
       setError('Enter a positive amount with at most two decimal places');
       return;
     }
-    void run(() => demoApi.transfer(from, to, minor));
+    const operation = demoRequests.transfer(from, to, minor);
+    void run(operation, () => demoApi.transfer(from, to, minor));
+  };
+
+  const curl = requestToCurl(lastRequest, window.location.origin);
+  const copyCurl = async () => {
+    setCopyStatus((await copyText(curl)) ? 'copied' : 'failed');
   };
 
   return (
     <main>
       <header>
         <div className="brand"><span className="mark">L</span> LuxLedger</div>
-        {state?.reset_enabled && (
-          <button className="secondary" disabled={busy} onClick={() => void run(demoApi.reset)}>
-            Reset demo
-          </button>
-        )}
+        <nav>
+          <a href="/docs" rel="noreferrer" target="_blank">API docs</a>
+          <a href="/openapi.yaml" rel="noreferrer" target="_blank">OpenAPI</a>
+          {state?.reset_enabled && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => void run(demoRequests.reset(), demoApi.reset)}
+            >
+              Reset demo
+            </button>
+          )}
+        </nav>
       </header>
 
       <section className="hero">
@@ -82,7 +124,17 @@ export function App() {
           </div>
           <div className="create-account">
             <input aria-label="New account address" value={newAddress} onChange={(event) => setNewAddress(event.target.value)} />
-            <button className="secondary" disabled={busy} onClick={() => void run(() => demoApi.createAccount(newAddress))}>Add account</button>
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                void run(demoRequests.createAccount(newAddress), () =>
+                  demoApi.createAccount(newAddress),
+                )
+              }
+            >
+              Add account
+            </button>
           </div>
         </div>
 
@@ -108,6 +160,36 @@ export function App() {
           </div>
           <p className="balanced">✓ Debits and credits balance</p>
         </> : <p className="muted">The two ledger entries will appear here after a transfer.</p>}
+      </section>
+
+      <section className="panel request-preview" aria-labelledby="request-preview-title">
+        <div className="panel-title">
+          <h2 id="request-preview-title">Request sent by this UI</h2>
+          <span>Demo application API</span>
+        </div>
+        <div className="request-line">
+          <span>{lastRequest.method}</span>
+          <code>{lastRequest.path}</code>
+        </div>
+        {lastRequest.body !== undefined && (
+          <pre data-testid="request-body">{JSON.stringify(lastRequest.body, null, 2)}</pre>
+        )}
+        <div className="curl-header">
+          <strong>Copy and run from your terminal</strong>
+          <button className="secondary" onClick={() => void copyCurl()}>
+            {copyStatus === 'copied'
+              ? 'Copied'
+              : copyStatus === 'failed'
+                ? 'Copy failed'
+                : 'Copy curl'}
+          </button>
+        </div>
+        <pre data-testid="curl-preview">{curl}</pre>
+        <p className="request-note">
+          The browser calls the product-specific demo API. The backend maps wallet addresses to
+          LuxLedger accounts and keeps administrative credentials server-side. Explore the{' '}
+          <a href="/docs" rel="noreferrer" target="_blank">canonical LuxLedger HTTP API</a>.
+        </p>
       </section>
     </main>
   );
