@@ -29,7 +29,12 @@ export const run = async (): Promise<void> => {
       }),
     );
   } finally {
-    await dbClient.sql.end({ timeout: 5 });
+    try {
+      await dbClient.sql.end({ timeout: 5 });
+    } catch (error) {
+      console.error('Failed to close DB connection:', error);
+      process.exitCode = 1;
+    }
   }
 };
 
