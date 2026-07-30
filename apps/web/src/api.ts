@@ -71,11 +71,13 @@ export const demoApi = {
     request(demoRequests.transfer(from, to, amountMinor)),
 };
 
+const shellSingleQuote = (value: string): string => `'${value.replaceAll("'", "'\"'\"'")}'`;
+
 export const requestToCurl = (operation: DemoRequest, origin: string): string => {
-  const lines = [`curl -X ${operation.method} '${origin}${operation.path}'`];
+  const lines = [`curl -X ${operation.method} ${shellSingleQuote(`${origin}${operation.path}`)}`];
   if (operation.body !== undefined) {
     lines.push("  -H 'content-type: application/json'");
-    lines.push(`  --data '${JSON.stringify(operation.body)}'`);
+    lines.push(`  --data ${shellSingleQuote(JSON.stringify(operation.body))}`);
   }
   return lines.join(' \\\n');
 };

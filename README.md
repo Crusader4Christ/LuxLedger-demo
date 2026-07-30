@@ -6,6 +6,8 @@ The backend is the main example: it registers the canonical LuxLedger routes and
 
 The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact released package set installed by the demo.
 
+> **Upgrading from `0.1.x`:** LuxLedger `0.2.0` replaces trial-balance `is_contra` with `balance_side` and adds the required, nullable account `code` response field. Follow the [0.2.0 migration guide](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/releases/0.2.0.md) before upgrading consumers.
+
 ## 10–15 minute quickstart
 
 ### Prerequisites
