@@ -71,6 +71,7 @@ export const demoApi = {
     request(demoRequests.transfer(from, to, amountMinor)),
 };
 
+// POSIX shell: close the single-quoted string, emit an apostrophe in double quotes, then reopen it.
 const shellSingleQuote = (value: string): string => `'${value.replaceAll("'", "'\"'\"'")}'`;
 
 export const requestToCurl = (operation: DemoRequest, origin: string): string => {

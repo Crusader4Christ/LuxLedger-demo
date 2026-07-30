@@ -1,4 +1,18 @@
 import { expect, test } from '@playwright/test';
+import { requestToCurl } from '../../apps/web/src/api';
+
+test('curl preview safely quotes apostrophes in JSON values', () => {
+  const curl = requestToCurl(
+    {
+      method: 'POST',
+      path: '/demo/accounts',
+      body: { address: "wallet:alice's" },
+    },
+    'http://127.0.0.1:5174',
+  );
+
+  expect(curl).toContain(`--data '{"address":"wallet:alice'"'"'s"}'`);
+});
 
 test('reset and transfer expose balances and balanced entries', async ({ page, request }) => {
   const reset = await request.post('/demo/reset');
