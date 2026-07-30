@@ -13,7 +13,7 @@
     "reset:demo": "tsx src/reset-demo.ts"
   },
   "dependencies": {
-    "@luxledger/core": "0.2.0",
+    "@luxledger/core": "0.2.1",
     "@luxledger/fastify-routes": "0.2.0",
     "@luxledger/http": "0.2.0",
     "@luxledger/postgres-adapter": "0.2.0",
