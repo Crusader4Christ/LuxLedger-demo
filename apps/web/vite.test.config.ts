@@ -8,6 +8,8 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/demo': 'http://127.0.0.1:3100',
+      '/docs': 'http://127.0.0.1:3100',
+      '/openapi.yaml': 'http://127.0.0.1:3100',
     },
   },
 });

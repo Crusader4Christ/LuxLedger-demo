@@ -6,6 +6,8 @@ The backend is the main example: it registers the canonical LuxLedger routes and
 
 The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact released package set installed by the demo.
 
+> **Upgrading from `0.1.x`:** LuxLedger `0.2.0` replaces trial-balance `is_contra` with `balance_side` and adds the required, nullable account `code` response field. Follow the [0.2.0 migration guide](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/releases/0.2.0.md) before upgrading consumers.
+
 ## 10–15 minute quickstart
 
 ### Prerequisites
@@ -109,6 +111,8 @@ npm run dev:web
 ```
 
 Open `http://localhost:5173`. Create another address or transfer USD 25.00 from Alice to Bob. The UI shows the resulting balances and the two entries recorded by LuxLedger.
+It also shows the product-facing HTTP request, provides a copyable curl command, and links to the
+canonical Swagger/OpenAPI documentation.
 
 For API and web together after the database has been migrated:
 
@@ -193,14 +197,14 @@ The final line is `201`.
 ```sh
 DEBIT_RESPONSE="$(curl -sS -w '\n%{http_code}' -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"name\":\"Cash\",\"side\":\"DEBIT\",\"overdraft_policy\":\"ALLOW\",\"currency\":\"USD\"}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"code\":\"1000\",\"name\":\"Cash\",\"side\":\"DEBIT\",\"overdraft_policy\":\"ALLOW\",\"currency\":\"USD\"}" \
   "$BASE_URL/v1/accounts")"
 printf '%s\n' "$DEBIT_RESPONSE"
 export DEBIT_ACCOUNT_ID="$(printf '%s' "$DEBIT_RESPONSE" | sed '$d' | json_value id)"
 
 CREDIT_RESPONSE="$(curl -sS -w '\n%{http_code}' -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"name\":\"Revenue\",\"side\":\"CREDIT\",\"overdraft_policy\":\"ALLOW\",\"currency\":\"USD\"}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"code\":\"4000\",\"name\":\"Revenue\",\"side\":\"CREDIT\",\"overdraft_policy\":\"ALLOW\",\"currency\":\"USD\"}" \
   "$BASE_URL/v1/accounts")"
 printf '%s\n' "$CREDIT_RESPONSE"
 export CREDIT_ACCOUNT_ID="$(printf '%s' "$CREDIT_RESPONSE" | sed '$d' | json_value id)"
@@ -209,7 +213,7 @@ export CREDIT_ACCOUNT_ID="$(printf '%s' "$CREDIT_RESPONSE" | sed '$d' | json_val
 Each body has this shape and is followed by `201`:
 
 ```json
-{"id":"<uuid>","tenant_id":"<uuid>","ledger_id":"<uuid>","name":"Cash","side":"DEBIT","overdraft_policy":"ALLOW","currency":"USD","balance_minor":"0","created_at":"<date-time>"}
+{"id":"<uuid>","tenant_id":"<uuid>","ledger_id":"<uuid>","code":"1000","name":"Cash","side":"DEBIT","overdraft_policy":"ALLOW","currency":"USD","balance_minor":"0","created_at":"<date-time>"}
 ```
 
 ### Post a balanced transaction — `201`
@@ -270,7 +274,7 @@ Representative bodies (IDs/timestamps vary), each followed by `200`:
 ```
 
 ```json
-{"ledger_id":"<ledger uuid>","accounts":[{"account_id":"<account uuid>","code":"<code>","name":"Cash","normal_balance":"DEBIT","balance":"1250","is_contra":false}],"total_debits":"1250","total_credits":"1250"}
+{"ledger_id":"<ledger uuid>","accounts":[{"account_id":"<account uuid>","code":"1000","name":"Cash","normal_balance":"DEBIT","balance":"1250","balance_side":"DEBIT"}],"total_debits":"1250","total_credits":"1250"}
 ```
 
 ## Continue evaluating

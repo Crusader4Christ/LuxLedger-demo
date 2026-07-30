@@ -4,7 +4,10 @@ info:
   version: 0.2.0
   description: Reference REST API built on top of @luxledger/core.
 servers:
+  - url: https://luxledger-demo.onrender.com
+    description: Hosted reference application
   - url: http://localhost:3000
+    description: Local development
 security:
   - BearerAuth: []
 paths:
@@ -190,9 +193,9 @@ paths:
                       - id: 00000000-0000-4000-8000-000000000201
                         tenant_id: 11111111-1111-4111-8111-111111111111
                         ledger_id: 00000000-0000-4000-8000-000000000001
-                        reference: tx-ref-1
+                        reference: payout-2026-0001
                         currency: USD
-                        description: Payment settlement
+                        description: Marketplace seller payout
                         related_transaction_id: null
                         relation_type: null
                         effective_at: '2026-01-01T00:01:00.000Z'
@@ -256,6 +259,7 @@ paths:
                     description: Payment settlement
                     related_transaction_id: null
                     relation_type: null
+                    effective_at: '2026-01-01T00:01:00.000Z'
                     created_at: '2026-01-01T00:01:00.000Z'
         '400':
           $ref: '#/components/responses/BadRequestError'
@@ -282,8 +286,8 @@ paths:
             examples:
               default:
                 value:
-                  reference: tx-ref-1-reversal
-                  description: Reverse invalid posting
+                  reference: payout-2026-0001-reversal
+                  description: Reverse duplicate seller payout
       responses:
         '201':
           description: Reversal created
@@ -316,17 +320,17 @@ paths:
             examples:
               default:
                 value:
-                  reversal_reference: tx-ref-1-reversal
-                  corrected_reference: tx-ref-1-corrected
-                  description: Correct account allocation
+                  reversal_reference: payout-2026-0001-reversal
+                  corrected_reference: payout-2026-0001-corrected
+                  description: Correct seller account allocation
                   entries:
                     - account_id: 00000000-0000-4000-8000-000000000101
                       direction: DEBIT
-                      amount_minor: '100'
+                      amount_minor: '2500'
                       currency: USD
-                    - account_id: 00000000-0000-4000-8000-000000000102
+                    - account_id: 00000000-0000-4000-8000-000000000103
                       direction: CREDIT
-                      amount_minor: '100'
+                      amount_minor: '2500'
                       currency: USD
       responses:
         '201':
@@ -803,36 +807,57 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: INVALID_INPUT
+            message: Request validation failed
+            details:
+              field: currency
+              reason: Currency must be a non-empty ISO 4217 code
     UnauthorizedError:
       description: Missing or invalid credentials
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: UNAUTHORIZED
+            message: Missing or invalid credentials
     ForbiddenError:
       description: Insufficient permissions
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: FORBIDDEN
+            message: Admin role required
     ConflictError:
       description: Request conflicts with current resource state
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: CONFLICT
+            message: Resource state does not allow this operation
     NotFoundError:
       description: Resource not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: NOT_FOUND
+            message: Requested resource was not found
     NotReadyError:
       description: Service not ready
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: NOT_READY
+            message: Service not ready
   schemas:
     ErrorResponse:
       type: object
@@ -845,6 +870,12 @@ components:
         details:
           type: object
           additionalProperties: true
+      example:
+        error: INVALID_INPUT
+        message: Request validation failed
+        details:
+          field: currency
+          reason: Currency must be a non-empty ISO 4217 code
     AuthTokenResponse:
       type: object
       required: [access_token, token_type, expires_in]
@@ -860,6 +891,10 @@ components:
           maximum: 900
           default: 900
           description: Access token TTL in seconds. Default is 900.
+      example:
+        access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo.signature
+        token_type: Bearer
+        expires_in: 900
     CreateApiKeyRequest:
       type: object
       additionalProperties: false
@@ -871,6 +906,9 @@ components:
         role:
           type: string
           enum: [ADMIN, SERVICE]
+      example:
+        name: marketplace-worker
+        role: SERVICE
     Ledger:
       type: object
       required: [id, tenantId, name, createdAt, updatedAt]
@@ -889,10 +927,22 @@ components:
         updatedAt:
           type: string
           format: date-time
+      example:
+        id: 00000000-0000-4000-8000-000000000001
+        tenantId: 11111111-1111-4111-8111-111111111111
+        name: Marketplace USD
+        createdAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z'
     LedgersListResponse:
       type: array
       items:
         $ref: '#/components/schemas/Ledger'
+      example:
+        - id: 00000000-0000-4000-8000-000000000001
+          tenantId: 11111111-1111-4111-8111-111111111111
+          name: Marketplace USD
+          createdAt: '2026-01-01T00:00:00.000Z'
+          updatedAt: '2026-01-01T00:00:00.000Z'
     CreateLedgerRequest:
       type: object
       additionalProperties: false
@@ -901,6 +951,8 @@ components:
         name:
           type: string
           pattern: '^(?=.*\S).+$'
+      example:
+        name: Marketplace USD
     TransactionEntryRequest:
       type: object
       additionalProperties: false
@@ -918,6 +970,11 @@ components:
         currency:
           type: string
           pattern: '^(?=.*\S).+$'
+      example:
+        account_id: 00000000-0000-4000-8000-000000000101
+        direction: DEBIT
+        amount_minor: '2500'
+        currency: USD
     CreateTransactionRequest:
       type: object
       additionalProperties: false
@@ -926,6 +983,10 @@ components:
         ledger_id:
           type: string
           format: uuid
+        code:
+          type: string
+          pattern: '^(?=.*\S).+$'
+          description: Optional. When omitted, stored as null; must be non-empty if provided.
         reference:
           type: string
           pattern: '^(?=.*\S).+$'
@@ -945,6 +1006,21 @@ components:
           minItems: 2
           items:
             $ref: '#/components/schemas/TransactionEntryRequest'
+      example:
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        reference: payout-2026-0001
+        currency: USD
+        description: Marketplace seller payout
+        effective_at: '2026-01-15T10:30:00.000Z'
+        entries:
+          - account_id: 00000000-0000-4000-8000-000000000101
+            direction: DEBIT
+            amount_minor: '2500'
+            currency: USD
+          - account_id: 00000000-0000-4000-8000-000000000102
+            direction: CREDIT
+            amount_minor: '2500'
+            currency: USD
     BulkCreateTransactionRequest:
       type: object
       additionalProperties: false
@@ -956,6 +1032,34 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/CreateTransactionRequest'
+      example:
+        transactions:
+          - ledger_id: 00000000-0000-4000-8000-000000000001
+            reference: payout-2026-0001
+            currency: USD
+            description: Marketplace seller payout
+            entries:
+              - account_id: 00000000-0000-4000-8000-000000000101
+                direction: DEBIT
+                amount_minor: '2500'
+                currency: USD
+              - account_id: 00000000-0000-4000-8000-000000000102
+                direction: CREDIT
+                amount_minor: '2500'
+                currency: USD
+          - ledger_id: 00000000-0000-4000-8000-000000000001
+            reference: payout-2026-0002
+            currency: USD
+            description: Marketplace seller payout
+            entries:
+              - account_id: 00000000-0000-4000-8000-000000000101
+                direction: DEBIT
+                amount_minor: '4800'
+                currency: USD
+              - account_id: 00000000-0000-4000-8000-000000000102
+                direction: CREDIT
+                amount_minor: '4800'
+                currency: USD
     CreateTransactionResponse:
       type: object
       additionalProperties: false
@@ -966,6 +1070,9 @@ components:
           format: uuid
         created:
           type: boolean
+      example:
+        transaction_id: 00000000-0000-4000-8000-000000000201
+        created: true
     BulkCreateTransactionResponse:
       type: object
       additionalProperties: false
@@ -991,6 +1098,16 @@ components:
                 format: uuid
               created:
                 type: boolean
+      example:
+        created_count: 2
+        idempotent_count: 0
+        transactions:
+          - reference: payout-2026-0001
+            transaction_id: 00000000-0000-4000-8000-000000000201
+            created: true
+          - reference: payout-2026-0002
+            transaction_id: 00000000-0000-4000-8000-000000000202
+            created: true
     CorrectTransactionResponse:
       type: object
       additionalProperties: false
@@ -1004,6 +1121,10 @@ components:
           format: uuid
         created:
           type: boolean
+      example:
+        reversal_transaction_id: 00000000-0000-4000-8000-000000000203
+        corrected_transaction_id: 00000000-0000-4000-8000-000000000204
+        created: true
     ReverseTransactionRequest:
       type: object
       additionalProperties: false
@@ -1015,6 +1136,9 @@ components:
         description:
           type: string
           pattern: '^(?=.*\S).+$'
+      example:
+        reference: payout-2026-0001-reversal
+        description: Reverse duplicate seller payout
     CorrectTransactionRequest:
       type: object
       additionalProperties: false
@@ -1034,6 +1158,19 @@ components:
           minItems: 2
           items:
             $ref: '#/components/schemas/TransactionEntryRequest'
+      example:
+        reversal_reference: payout-2026-0001-reversal
+        corrected_reference: payout-2026-0001-corrected
+        description: Correct seller account allocation
+        entries:
+          - account_id: 00000000-0000-4000-8000-000000000101
+            direction: DEBIT
+            amount_minor: '2500'
+            currency: USD
+          - account_id: 00000000-0000-4000-8000-000000000103
+            direction: CREDIT
+            amount_minor: '2500'
+            currency: USD
     CreateAccountRequest:
       type: object
       additionalProperties: false
@@ -1042,6 +1179,10 @@ components:
         ledger_id:
           type: string
           format: uuid
+        code:
+          type: string
+          pattern: '^(?=.*\S).+$'
+          description: Optional. When omitted, stored as null; must be non-empty if provided.
         name:
           type: string
           minLength: 1
@@ -1056,14 +1197,15 @@ components:
           pattern: '^(?=.*\S).+$'
       example:
         ledger_id: 00000000-0000-4000-8000-000000000001
-        name: Cash
+        code: '1000'
+        name: Platform cash
         side: DEBIT
-        overdraft_policy: ALLOW
+        overdraft_policy: DISALLOW
         currency: USD
     Account:
       type: object
       additionalProperties: false
-      required: [id, tenant_id, ledger_id, name, side, overdraft_policy, currency, balance_minor, created_at]
+      required: [id, tenant_id, ledger_id, code, name, side, overdraft_policy, currency, balance_minor, created_at]
       properties:
         id:
           type: string
@@ -1074,6 +1216,10 @@ components:
         ledger_id:
           type: string
           format: uuid
+        code:
+          type: string
+          nullable: true
+          description: Always present in responses; null when the account has no code.
         name:
           type: string
         side:
@@ -1093,11 +1239,12 @@ components:
         id: 00000000-0000-4000-8000-000000000101
         tenant_id: 11111111-1111-4111-8111-111111111111
         ledger_id: 00000000-0000-4000-8000-000000000001
-        name: Cash
+        code: '1000'
+        name: Platform cash
         side: DEBIT
-        overdraft_policy: ALLOW
+        overdraft_policy: DISALLOW
         currency: USD
-        balance_minor: '100'
+        balance_minor: '100000'
         created_at: '2026-01-01T00:00:00.000Z'
     AccountsPage:
       type: object
@@ -1111,6 +1258,19 @@ components:
         next_cursor:
           type: string
           nullable: true
+      example:
+        data:
+          - id: 00000000-0000-4000-8000-000000000101
+            tenant_id: 11111111-1111-4111-8111-111111111111
+            ledger_id: 00000000-0000-4000-8000-000000000001
+            code: '1000'
+            name: Platform cash
+            side: DEBIT
+            overdraft_policy: DISALLOW
+            currency: USD
+            balance_minor: '100000'
+            created_at: '2026-01-01T00:00:00.000Z'
+        next_cursor: null
     BalanceAsOfResponse:
       type: object
       additionalProperties: false
@@ -1130,6 +1290,13 @@ components:
           type: string
         available_minor:
           type: string
+      example:
+        account_id: 00000000-0000-4000-8000-000000000101
+        timestamp: '2026-01-15T10:30:00.000Z'
+        posted_minor: '100000'
+        inflight_debit_minor: '2500'
+        inflight_credit_minor: '0'
+        available_minor: '97500'
     BalanceSnapshot:
       type: object
       additionalProperties: false
@@ -1165,6 +1332,18 @@ components:
         created_at:
           type: string
           format: date-time
+      example:
+        id: 00000000-0000-4000-8000-000000000901
+        tenant_id: 11111111-1111-4111-8111-111111111111
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        account_id: 00000000-0000-4000-8000-000000000101
+        event_type: TX_APPLIED
+        source_id: 00000000-0000-4000-8000-000000000201
+        posted_minor: '100000'
+        inflight_debit_minor: '0'
+        inflight_credit_minor: '0'
+        effective_at: '2026-01-15T10:30:00.000Z'
+        created_at: '2026-01-15T10:30:00.000Z'
     BalanceHistoryResponse:
       type: object
       additionalProperties: false
@@ -1177,6 +1356,20 @@ components:
         next_cursor:
           type: string
           nullable: true
+      example:
+        data:
+          - id: 00000000-0000-4000-8000-000000000901
+            tenant_id: 11111111-1111-4111-8111-111111111111
+            ledger_id: 00000000-0000-4000-8000-000000000001
+            account_id: 00000000-0000-4000-8000-000000000101
+            event_type: TX_APPLIED
+            source_id: 00000000-0000-4000-8000-000000000201
+            posted_minor: '100000'
+            inflight_debit_minor: '0'
+            inflight_credit_minor: '0'
+            effective_at: '2026-01-15T10:30:00.000Z'
+            created_at: '2026-01-15T10:30:00.000Z'
+        next_cursor: null
     TransactionsPage:
       type: object
       additionalProperties: false
@@ -1189,6 +1382,19 @@ components:
         next_cursor:
           type: string
           nullable: true
+      example:
+        data:
+          - id: 00000000-0000-4000-8000-000000000201
+            tenant_id: 11111111-1111-4111-8111-111111111111
+            ledger_id: 00000000-0000-4000-8000-000000000001
+            reference: payout-2026-0001
+            currency: USD
+            description: Marketplace seller payout
+            related_transaction_id: null
+            relation_type: null
+            effective_at: '2026-01-15T10:30:00.000Z'
+            created_at: '2026-01-15T10:30:00.000Z'
+        next_cursor: null
     Transaction:
       type: object
       additionalProperties: false
@@ -1228,9 +1434,9 @@ components:
         id: 00000000-0000-4000-8000-000000000201
         tenant_id: 11111111-1111-4111-8111-111111111111
         ledger_id: 00000000-0000-4000-8000-000000000001
-        reference: tx-ref-1
+        reference: payout-2026-0001
         currency: USD
-        description: Payment settlement
+        description: Marketplace seller payout
         related_transaction_id: null
         relation_type: null
         effective_at: '2026-01-01T00:01:00.000Z'
@@ -1268,6 +1474,23 @@ components:
         next_cursor:
           type: string
           nullable: true
+      example:
+        data:
+          - id: 00000000-0000-4000-8000-000000000211
+            transaction_id: 00000000-0000-4000-8000-000000000201
+            account_id: 00000000-0000-4000-8000-000000000101
+            direction: DEBIT
+            amount_minor: '2500'
+            currency: USD
+            created_at: '2026-01-15T10:30:00.000Z'
+          - id: 00000000-0000-4000-8000-000000000212
+            transaction_id: 00000000-0000-4000-8000-000000000201
+            account_id: 00000000-0000-4000-8000-000000000102
+            direction: CREDIT
+            amount_minor: '2500'
+            currency: USD
+            created_at: '2026-01-15T10:30:00.000Z'
+        next_cursor: null
     TrialBalanceResponse:
       type: object
       required: [ledger_id, accounts, total_debits, total_credits]
@@ -1279,13 +1502,14 @@ components:
           type: array
           items:
             type: object
-            required: [account_id, code, name, normal_balance, balance, is_contra]
+            required: [account_id, code, name, normal_balance, balance, balance_side]
             properties:
               account_id:
                 type: string
                 format: uuid
               code:
                 type: string
+                nullable: true
               name:
                 type: string
               normal_balance:
@@ -1293,12 +1517,30 @@ components:
                 enum: [DEBIT, CREDIT]
               balance:
                 type: string
-              is_contra:
-                type: boolean
+              balance_side:
+                type: string
+                enum: [DEBIT, CREDIT]
         total_debits:
           type: string
         total_credits:
           type: string
+      example:
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        accounts:
+          - account_id: 00000000-0000-4000-8000-000000000101
+            code: '1000'
+            name: Platform cash
+            normal_balance: DEBIT
+            balance: '2500'
+            balance_side: DEBIT
+          - account_id: 00000000-0000-4000-8000-000000000102
+            code: '2000'
+            name: Seller payable
+            normal_balance: CREDIT
+            balance: '2500'
+            balance_side: CREDIT
+        total_debits: '2500'
+        total_credits: '2500'
     CreateHoldRequest:
       type: object
       additionalProperties: false
@@ -1321,6 +1563,20 @@ components:
           minItems: 2
           items:
             $ref: '#/components/schemas/TransactionEntryRequest'
+      example:
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        reference: order-7842-authorization
+        currency: USD
+        description: Reserve funds for marketplace order 7842
+        entries:
+          - account_id: 00000000-0000-4000-8000-000000000101
+            direction: DEBIT
+            amount_minor: '7500'
+            currency: USD
+          - account_id: 00000000-0000-4000-8000-000000000102
+            direction: CREDIT
+            amount_minor: '7500'
+            currency: USD
     CreateHoldResponse:
       type: object
       additionalProperties: false
@@ -1337,6 +1593,11 @@ components:
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
+      example:
+        hold_id: 00000000-0000-4000-8000-000000000301
+        created: true
+        state: HELD
+        remaining_amount_minor: '7500'
     CommitHoldRequest:
       type: object
       additionalProperties: false
@@ -1348,6 +1609,9 @@ components:
         amount_minor:
           type: string
           pattern: '^[1-9][0-9]*$'
+      example:
+        reference: order-7842-capture
+        amount_minor: '7500'
     CommitHoldResponse:
       type: object
       additionalProperties: false
@@ -1367,6 +1631,12 @@ components:
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
+      example:
+        hold_id: 00000000-0000-4000-8000-000000000301
+        transaction_id: 00000000-0000-4000-8000-000000000205
+        created: true
+        state: APPLIED
+        remaining_amount_minor: '0'
     VoidHoldResponse:
       type: object
       additionalProperties: false
@@ -1383,6 +1653,11 @@ components:
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
+      example:
+        hold_id: 00000000-0000-4000-8000-000000000301
+        state: VOIDED
+        voided: true
+        remaining_amount_minor: '0'
     ReconciliationCriterion:
       type: object
       additionalProperties: false
@@ -1400,6 +1675,9 @@ components:
         date_tolerance_seconds:
           type: integer
           minimum: 0
+      example:
+        field: reference
+        operator: equals
     CreateReconciliationMatchingRuleRequest:
       type: object
       additionalProperties: false
@@ -1416,6 +1694,17 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/ReconciliationCriterion'
+      example:
+        name: Match marketplace payouts
+        description: Match provider settlements by reference, amount, and currency
+        criteria:
+          - field: reference
+            operator: equals
+          - field: amount
+            operator: equals
+            amount_tolerance_minor: '0'
+          - field: currency
+            operator: equals
     ReconciliationMatchingRule:
       type: object
       additionalProperties: false
@@ -1439,6 +1728,20 @@ components:
         created_at:
           type: string
           format: date-time
+      example:
+        id: 00000000-0000-4000-8000-000000000401
+        tenant_id: 11111111-1111-4111-8111-111111111111
+        name: Match marketplace payouts
+        description: Match provider settlements by reference, amount, and currency
+        criteria:
+          - field: reference
+            operator: equals
+          - field: amount
+            operator: equals
+            amount_tolerance_minor: '0'
+          - field: currency
+            operator: equals
+        created_at: '2026-01-15T11:00:00.000Z'
     IngestExternalRecordsRequest:
       type: object
       additionalProperties: false
@@ -1478,6 +1781,17 @@ components:
                 type: object
                 nullable: true
                 additionalProperties: true
+      example:
+        source: stripe-connect
+        records:
+          - id: po_1QExample
+            amount_minor: '2500'
+            currency: USD
+            reference: payout-2026-0001
+            description: Seller payout
+            date: '2026-01-15T10:30:00.000Z'
+            raw:
+              provider_status: paid
     ExternalRecordsUpload:
       type: object
       additionalProperties: false
@@ -1497,6 +1811,12 @@ components:
         created_at:
           type: string
           format: date-time
+      example:
+        upload_id: 00000000-0000-4000-8000-000000000501
+        tenant_id: 11111111-1111-4111-8111-111111111111
+        source: stripe-connect
+        record_count: 1
+        created_at: '2026-01-15T11:05:00.000Z'
     RunReconciliationRequest:
       type: object
       additionalProperties: false
@@ -1520,6 +1840,13 @@ components:
             format: uuid
         dry_run:
           type: boolean
+      example:
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        upload_id: 00000000-0000-4000-8000-000000000501
+        strategy: one_to_one
+        matching_rule_ids:
+          - 00000000-0000-4000-8000-000000000401
+        dry_run: true
     ReconciliationRun:
       type: object
       additionalProperties: false
@@ -1572,6 +1899,32 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReconciliationResult'
+      example:
+        id: 00000000-0000-4000-8000-000000000601
+        tenant_id: 11111111-1111-4111-8111-111111111111
+        ledger_id: 00000000-0000-4000-8000-000000000001
+        upload_id: 00000000-0000-4000-8000-000000000501
+        strategy: one_to_one
+        status: completed
+        dry_run: true
+        matched_count: 1
+        unmatched_external_count: 0
+        unmatched_internal_count: 0
+        mismatched_count: 0
+        conflict_count: 0
+        started_at: '2026-01-15T11:06:00.000Z'
+        completed_at: '2026-01-15T11:06:01.000Z'
+        results:
+          - id: 00000000-0000-4000-8000-000000000701
+            run_id: 00000000-0000-4000-8000-000000000601
+            external_record_id: 00000000-0000-4000-8000-000000000501
+            external_id: po_1QExample
+            transaction_id: 00000000-0000-4000-8000-000000000201
+            status: matched
+            reason: Exact reference, amount, and currency match
+            candidate_transaction_ids:
+              - 00000000-0000-4000-8000-000000000201
+            created_at: '2026-01-15T11:06:01.000Z'
     ReconciliationResult:
       type: object
       additionalProperties: false
@@ -1608,6 +1961,17 @@ components:
         created_at:
           type: string
           format: date-time
+      example:
+        id: 00000000-0000-4000-8000-000000000701
+        run_id: 00000000-0000-4000-8000-000000000601
+        external_record_id: 00000000-0000-4000-8000-000000000501
+        external_id: po_1QExample
+        transaction_id: 00000000-0000-4000-8000-000000000201
+        status: matched
+        reason: Exact reference, amount, and currency match
+        candidate_transaction_ids:
+          - 00000000-0000-4000-8000-000000000201
+        created_at: '2026-01-15T11:06:01.000Z'
     ApiKey:
       type: object
       required: [id, tenant_id, name, role, created_at, revoked_at]
@@ -1630,6 +1994,13 @@ components:
           type: string
           format: date-time
           nullable: true
+      example:
+        id: 00000000-0000-4000-8000-000000000801
+        tenant_id: 11111111-1111-4111-8111-111111111111
+        name: marketplace-worker
+        role: SERVICE
+        created_at: '2026-01-15T09:00:00.000Z'
+        revoked_at: null
     ApiKeysListResponse:
       type: object
       required: [data]
@@ -1638,6 +2009,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApiKey'
+      example:
+        data:
+          - id: 00000000-0000-4000-8000-000000000801
+            tenant_id: 11111111-1111-4111-8111-111111111111
+            name: marketplace-worker
+            role: SERVICE
+            created_at: '2026-01-15T09:00:00.000Z'
+            revoked_at: null
     CreateApiKeyResponse:
       type: object
       required: [api_key, key]
@@ -1646,3 +2025,12 @@ components:
           type: string
         key:
           $ref: '#/components/schemas/ApiKey'
+      example:
+        api_key: ll_live_example_key_shown_once
+        key:
+          id: 00000000-0000-4000-8000-000000000801
+          tenant_id: 11111111-1111-4111-8111-111111111111
+          name: marketplace-worker
+          role: SERVICE
+          created_at: '2026-01-15T09:00:00.000Z'
+          revoked_at: null
