@@ -21,9 +21,26 @@ test('reset and transfer expose balances and balanced entries', async ({ page, r
   await expect(page.getByTestId('curl-preview')).toContainText('/demo/transfers');
   await page.getByRole('button', { name: 'Copy curl' }).click();
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'API docs' })).toHaveAttribute('href', '/docs');
+  const navigation = page.getByRole('navigation');
+  await expect(navigation.getByRole('link', { name: 'API docs' })).toHaveAttribute(
+    'href',
+    '/docs',
+  );
   await expect(page.getByRole('link', { name: 'OpenAPI' })).toHaveAttribute(
     'href',
     '/openapi.yaml',
+  );
+  await expect(
+    page.getByRole('heading', {
+      name: 'The ledger layer for products that move money.',
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Become a design partner' })).toHaveAttribute(
+    'href',
+    'mailto:herman.klushin@gmail.com?subject=LuxLedger%20design%20partnership',
+  );
+  await expect(navigation.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/Crusader4Christ/LuxLedger',
   );
 });
