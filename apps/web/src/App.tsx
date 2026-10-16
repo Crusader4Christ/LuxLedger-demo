@@ -186,11 +186,17 @@ export function App() {
         {latest ? <>
           <div className="transaction-meta"><strong>{latest.description}</strong><code>{latest.id}</code></div>
           <div className="entries">
-            {latest.entries.map((entry, index) => <div className="entry" key={`${entry.account_address}-${index}`}>
-              <span className={`badge ${entry.direction.toLowerCase()}`}>{entry.direction}</span>
-              <strong>{entry.account_address}</strong>
-              <span>{formatMoney(entry.amount_minor, state!.currency)}</span>
-            </div>)}
+            {latest.entries.map((entry, index) => {
+              const direction = BigInt(entry.signed_amount_minor) > 0n ? 'DEBIT' : 'CREDIT';
+              const magnitude = BigInt(entry.signed_amount_minor);
+              return (
+                <div className="entry" key={`${entry.account_address}-${index}`}>
+                  <span className={`badge ${direction.toLowerCase()}`}>{direction}</span>
+                  <strong>{entry.account_address}</strong>
+                  <span>{formatMoney((magnitude < 0n ? -magnitude : magnitude).toString(), state!.currency)}</span>
+                </div>
+              );
+            })}
           </div>
           <p className="balanced">✓ Debits and credits balance</p>
         </> : <p className="muted">The two ledger entries will appear here after a transfer.</p>}

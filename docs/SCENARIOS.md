@@ -31,7 +31,7 @@ A syntactically valid request can still violate a core invariant. The examples b
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-unbalanced-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"100\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"99\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-unbalanced-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"100\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-99\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions"
 ```
 
@@ -45,7 +45,7 @@ Expected `HTTP 400`:
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-currency-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"100\",\"currency\":\"EUR\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"100\",\"currency\":\"EUR\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-currency-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"100\",\"currency\":\"EUR\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-100\",\"currency\":\"EUR\"}]}" \
   "$BASE_URL/v1/transactions"
 ```
 
@@ -64,7 +64,7 @@ OTHER_ACCOUNT_ID="$(api -X POST -H 'content-type: application/json' \
   "$BASE_URL/v1/accounts" | sed -n '1p' | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).id')"
 
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-cross-ledger-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$OTHER_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"100\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"100\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"failure-cross-ledger-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$OTHER_ACCOUNT_ID\",\"signed_amount_minor\":\"100\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-100\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions"
 ```
 
@@ -80,7 +80,7 @@ The README already created `quickstart-sale-001` for 1250. Reuse that tenant-sco
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Quickstart sale\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"1300\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"1300\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Quickstart sale\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"1300\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-1300\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions"
 ```
 
@@ -96,7 +96,7 @@ Description is also part of transaction identity in `postgres-adapter@0.1.3`. Re
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Changed description\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Changed description\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"1250\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-1250\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions"
 ```
 
@@ -108,7 +108,7 @@ First post two valid items atomically:
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"transactions\":[{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-ok-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"200\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"200\",\"currency\":\"USD\"}]},{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-ok-002\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"300\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"300\",\"currency\":\"USD\"}]}]}" \
+  -d "{\"transactions\":[{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-ok-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"200\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-200\",\"currency\":\"USD\"}]},{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-ok-002\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"300\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-300\",\"currency\":\"USD\"}]}]}" \
   "$BASE_URL/v1/transactions/bulk"
 ```
 
@@ -126,7 +126,7 @@ Now make item 2 unbalanced. Item 1 is valid but must roll back:
 
 ```sh
 api -X POST -H 'content-type: application/json' \
-  -d "{\"transactions\":[{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-rollback-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"400\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"400\",\"currency\":\"USD\"}]},{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-rollback-002\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"500\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"499\",\"currency\":\"USD\"}]}]}" \
+  -d "{\"transactions\":[{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-rollback-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"400\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-400\",\"currency\":\"USD\"}]},{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"bulk-rollback-002\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"500\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-499\",\"currency\":\"USD\"}]}]}" \
   "$BASE_URL/v1/transactions/bulk"
 ```
 
@@ -161,17 +161,17 @@ Expected `HTTP 201`:
 {"transaction_id":"<reversal uuid>","created":true}
 ```
 
-The reversal uses opposite entry directions and links back with `relation_type: "REVERSAL"`. An identical retry returns `HTTP 200` and `created: false`.
+The reversal uses opposite signed entry amounts and links back with `relation_type: "REVERSAL"`. An identical retry returns `HTTP 200` and `created: false`.
 
 Correction is an atomic reversal plus replacement. Use a transaction not already reversed:
 
 ```sh
 CORRECT_SOURCE_ID="$(api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"correction-source-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"600\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"600\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"correction-source-001\",\"currency\":\"USD\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"600\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-600\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions" | sed -n '1p' | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).transaction_id')"
 
 api -X POST -H 'content-type: application/json' \
-  -d "{\"reversal_reference\":\"correction-source-001-reversal\",\"corrected_reference\":\"correction-source-001-v2\",\"description\":\"Correct amount\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"650\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"650\",\"currency\":\"USD\"}]}" \
+  -d "{\"reversal_reference\":\"correction-source-001-reversal\",\"corrected_reference\":\"correction-source-001-v2\",\"description\":\"Correct amount\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"650\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-650\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions/$CORRECT_SOURCE_ID/correct"
 ```
 
@@ -189,7 +189,7 @@ A hold changes inflight/available balances without changing posted balance. Crea
 
 ```sh
 HOLD_RESPONSE="$(api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"hold-001\",\"currency\":\"USD\",\"description\":\"Authorization\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"800\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"800\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"hold-001\",\"currency\":\"USD\",\"description\":\"Authorization\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"800\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-800\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/holds")"
 printf '%s\n' "$HOLD_RESPONSE"
 export HOLD_ID="$(printf '%s' "$HOLD_RESPONSE" | sed -n '1p' | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).hold_id')"
@@ -239,7 +239,7 @@ export BACKDATED_AT=2026-06-01T12:00:00.000Z
 export HISTORY_TO=2030-01-01T00:00:00.000Z
 
 api -X POST -H 'content-type: application/json' \
-  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"backdated-001\",\"currency\":\"USD\",\"effective_at\":\"$BACKDATED_AT\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"700\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"700\",\"currency\":\"USD\"}]}" \
+  -d "{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"backdated-001\",\"currency\":\"USD\",\"effective_at\":\"$BACKDATED_AT\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"700\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-700\",\"currency\":\"USD\"}]}" \
   "$BASE_URL/v1/transactions"
 
 api "$BASE_URL/v1/accounts/$DEBIT_ACCOUNT_ID/balance-as-of?at=$BACKDATED_AT"

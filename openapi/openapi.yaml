@@ -1,13 +1,10 @@
 openapi: 3.1.0
 info:
   title: LuxLedger API
-  version: 0.2.0
+  version: 0.3.0
   description: Reference REST API built on top of @luxledger/core.
 servers:
-  - url: https://luxledger-demo.onrender.com
-    description: Hosted reference application
   - url: http://localhost:3000
-    description: Local development
 security:
   - BearerAuth: []
 paths:
@@ -193,9 +190,12 @@ paths:
                       - id: 00000000-0000-4000-8000-000000000201
                         tenant_id: 11111111-1111-4111-8111-111111111111
                         ledger_id: 00000000-0000-4000-8000-000000000001
-                        reference: payout-2026-0001
+                        reference: tx-ref-1
                         currency: USD
-                        description: Marketplace seller payout
+                        description: Payment settlement
+                        metadata:
+                          provider:
+                            payment_id: pay_123
                         related_transaction_id: null
                         relation_type: null
                         effective_at: '2026-01-01T00:01:00.000Z'
@@ -257,6 +257,7 @@ paths:
                     reference: tx-ref-1
                     currency: USD
                     description: Payment settlement
+                    metadata: null
                     related_transaction_id: null
                     relation_type: null
                     effective_at: '2026-01-01T00:01:00.000Z'
@@ -286,8 +287,8 @@ paths:
             examples:
               default:
                 value:
-                  reference: payout-2026-0001-reversal
-                  description: Reverse duplicate seller payout
+                  reference: tx-ref-1-reversal
+                  description: Reverse invalid posting
       responses:
         '201':
           description: Reversal created
@@ -320,17 +321,15 @@ paths:
             examples:
               default:
                 value:
-                  reversal_reference: payout-2026-0001-reversal
-                  corrected_reference: payout-2026-0001-corrected
-                  description: Correct seller account allocation
+                  reversal_reference: tx-ref-1-reversal
+                  corrected_reference: tx-ref-1-corrected
+                  description: Correct account allocation
                   entries:
                     - account_id: 00000000-0000-4000-8000-000000000101
-                      direction: DEBIT
-                      amount_minor: '2500'
+                      signed_amount_minor: '100'
                       currency: USD
-                    - account_id: 00000000-0000-4000-8000-000000000103
-                      direction: CREDIT
-                      amount_minor: '2500'
+                    - account_id: 00000000-0000-4000-8000-000000000102
+                      signed_amount_minor: '-100'
                       currency: USD
       responses:
         '201':
@@ -759,6 +758,193 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+  /v1/credit-grants:
+    post:
+      summary: Create an immutable credit grant and balanced ledger posting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCreditGrantRequest'
+      responses:
+        '201':
+          description: Grant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrant'
+        '200':
+          description: Identical retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrant'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/credit-grants/{id}:
+    get:
+      summary: Read a credit grant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Credit grant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrant'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/credit-grants/expiration/preview:
+    post:
+      summary: Preview due credit grant expirations without posting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessCreditGrantExpirationsRequest'
+      responses:
+        '200':
+          description: Deterministic bounded FEFO preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrantExpirationResult'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/credit-grants/expiration/run:
+    post:
+      summary: Claim and atomically post due credit grant expirations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessCreditGrantExpirationsRequest'
+      responses:
+        '200':
+          description: Expirations posted by this worker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrantExpirationResult'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/credit-grants/{id}/reversal:
+    post:
+      summary: Fully compensate an unconsumed grant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReverseCreditGrantRequest'
+      responses:
+        '201':
+          description: Compensation posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrant'
+        '200':
+          description: Identical retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrant'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/credit-grants/{id}/allocations:
+    get:
+      summary: Traverse consumption and compensation lineage for a grant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Immutable allocation lineage ordered by entry creation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrantLineage'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/transactions/{id}/credit-allocations:
+    get:
+      summary: Traverse source grants for a consumption or compensation transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Immutable allocation lineage ordered by entry creation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditGrantLineage'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+  /v1/accounts/{id}/credit-balance:
+    get:
+      summary: Read reconciled credit grant lots for an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Grant lots reconciled with the ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditBalance'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -807,58 +993,147 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: INVALID_INPUT
-            message: Request validation failed
-            details:
-              field: currency
-              reason: Currency must be a non-empty ISO 4217 code
     UnauthorizedError:
       description: Missing or invalid credentials
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: UNAUTHORIZED
-            message: Missing or invalid credentials
     ForbiddenError:
       description: Insufficient permissions
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: FORBIDDEN
-            message: Admin role required
     ConflictError:
       description: Request conflicts with current resource state
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: CONFLICT
-            message: Resource state does not allow this operation
     NotFoundError:
       description: Resource not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: NOT_FOUND
-            message: Requested resource was not found
     NotReadyError:
       description: Service not ready
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: NOT_READY
-            message: Service not ready
   schemas:
+    CreateCreditGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [ledger_id, account_id, funding_account_id, reference, amount_minor]
+      properties:
+        ledger_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        funding_account_id: { type: string, format: uuid }
+        reference: { type: string, minLength: 1 }
+        external_reference: { type: string, minLength: 1 }
+        amount_minor: { type: string, pattern: '^[1-9][0-9]*$' }
+        expires_at: { type: string, format: date-time }
+    ReverseCreditGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [reference]
+      properties:
+        reference: { type: string, minLength: 1 }
+    CreditGrant:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, ledger_id, account_id, funding_account_id, asset_id, reference, external_reference, amount_minor, transaction_id, created_at, expires_at, reversed_by_transaction_id]
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        ledger_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        funding_account_id: { type: string, format: uuid }
+        asset_id: { type: string, format: uuid }
+        reference: { type: string }
+        external_reference: { type: string, nullable: true }
+        amount_minor: { type: string, pattern: '^[0-9]+$' }
+        transaction_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        reversed_by_transaction_id: { type: string, format: uuid, nullable: true }
+    CreditGrantLot:
+      type: object
+      additionalProperties: false
+      required: [grant_id, reference, external_reference, created_at, expires_at, granted_minor, reversed_minor, consumed_minor, compensated_minor, expired_minor, remaining_minor]
+      properties:
+        grant_id: { type: string, format: uuid }
+        reference: { type: string }
+        external_reference: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        granted_minor: { type: string, pattern: '^[0-9]+$' }
+        reversed_minor: { type: string, pattern: '^[0-9]+$' }
+        consumed_minor: { type: string, pattern: '^[0-9]+$' }
+        compensated_minor: { type: string, pattern: '^[0-9]+$' }
+        expired_minor: { type: string, pattern: '^[0-9]+$' }
+        remaining_minor: { type: string, pattern: '^[0-9]+$' }
+    CreditBalance:
+      type: object
+      additionalProperties: false
+      required: [account_id, asset_id, ledger_balance_minor, remaining_minor, lots]
+      properties:
+        account_id: { type: string, format: uuid }
+        asset_id: { type: string, format: uuid }
+        ledger_balance_minor: { type: string, pattern: '^[0-9]+$' }
+        remaining_minor: { type: string, pattern: '^[0-9]+$' }
+        lots:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreditGrantLot'
+    CreditGrantLineage:
+      type: object
+      additionalProperties: false
+      required: [allocations]
+      properties:
+        allocations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [grant_id, entry_id, transaction_id, kind, amount_minor, created_at]
+            properties:
+              grant_id: { type: string, format: uuid }
+              entry_id: { type: string, format: uuid }
+              transaction_id: { type: string, format: uuid }
+              kind: { type: string, enum: [CONSUMPTION, COMPENSATION, EXPIRATION] }
+              amount_minor: { type: string, pattern: '^[1-9][0-9]*$' }
+              created_at: { type: string, format: date-time }
+    ProcessCreditGrantExpirationsRequest:
+      type: object
+      additionalProperties: false
+      required: [as_of, limit]
+      properties:
+        as_of: { type: string, format: date-time }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+    CreditGrantExpirationResult:
+      type: object
+      additionalProperties: false
+      required: [as_of, items]
+      properties:
+        as_of: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [grant_id, account_id, funding_account_id, expires_at, amount_minor, cumulative_expired_minor, transaction_id]
+            properties:
+              grant_id: { type: string, format: uuid }
+              account_id: { type: string, format: uuid }
+              funding_account_id: { type: string, format: uuid }
+              expires_at: { type: string, format: date-time }
+              amount_minor: { type: string, pattern: '^[1-9][0-9]*$' }
+              cumulative_expired_minor: { type: string, pattern: '^[1-9][0-9]*$' }
+              transaction_id: { type: string, format: uuid, nullable: true }
     ErrorResponse:
       type: object
       required: [error, message]
@@ -870,12 +1145,6 @@ components:
         details:
           type: object
           additionalProperties: true
-      example:
-        error: INVALID_INPUT
-        message: Request validation failed
-        details:
-          field: currency
-          reason: Currency must be a non-empty ISO 4217 code
     AuthTokenResponse:
       type: object
       required: [access_token, token_type, expires_in]
@@ -891,10 +1160,6 @@ components:
           maximum: 900
           default: 900
           description: Access token TTL in seconds. Default is 900.
-      example:
-        access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo.signature
-        token_type: Bearer
-        expires_in: 900
     CreateApiKeyRequest:
       type: object
       additionalProperties: false
@@ -906,9 +1171,6 @@ components:
         role:
           type: string
           enum: [ADMIN, SERVICE]
-      example:
-        name: marketplace-worker
-        role: SERVICE
     Ledger:
       type: object
       required: [id, tenantId, name, createdAt, updatedAt]
@@ -927,22 +1189,10 @@ components:
         updatedAt:
           type: string
           format: date-time
-      example:
-        id: 00000000-0000-4000-8000-000000000001
-        tenantId: 11111111-1111-4111-8111-111111111111
-        name: Marketplace USD
-        createdAt: '2026-01-01T00:00:00.000Z'
-        updatedAt: '2026-01-01T00:00:00.000Z'
     LedgersListResponse:
       type: array
       items:
         $ref: '#/components/schemas/Ledger'
-      example:
-        - id: 00000000-0000-4000-8000-000000000001
-          tenantId: 11111111-1111-4111-8111-111111111111
-          name: Marketplace USD
-          createdAt: '2026-01-01T00:00:00.000Z'
-          updatedAt: '2026-01-01T00:00:00.000Z'
     CreateLedgerRequest:
       type: object
       additionalProperties: false
@@ -951,30 +1201,20 @@ components:
         name:
           type: string
           pattern: '^(?=.*\S).+$'
-      example:
-        name: Marketplace USD
     TransactionEntryRequest:
       type: object
       additionalProperties: false
-      required: [account_id, direction, amount_minor, currency]
+      required: [account_id, signed_amount_minor, currency]
       properties:
         account_id:
           type: string
           format: uuid
-        direction:
+        signed_amount_minor:
           type: string
-          enum: [DEBIT, CREDIT]
-        amount_minor:
-          type: string
-          pattern: '^[1-9][0-9]*$'
+          pattern: '^-?[1-9][0-9]*$'
         currency:
           type: string
           pattern: '^(?=.*\S).+$'
-      example:
-        account_id: 00000000-0000-4000-8000-000000000101
-        direction: DEBIT
-        amount_minor: '2500'
-        currency: USD
     CreateTransactionRequest:
       type: object
       additionalProperties: false
@@ -983,10 +1223,6 @@ components:
         ledger_id:
           type: string
           format: uuid
-        code:
-          type: string
-          pattern: '^(?=.*\S).+$'
-          description: Optional. When omitted, stored as null; must be non-empty if provided.
         reference:
           type: string
           pattern: '^(?=.*\S).+$'
@@ -997,6 +1233,10 @@ components:
           type: string
           pattern: '^(?=.*\S).+$'
           description: Optional transaction description. When omitted it is stored as null.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional JSON object with caller-defined transaction metadata. Null, arrays, and primitives are rejected.
         effective_at:
           type: string
           format: date-time
@@ -1008,18 +1248,19 @@ components:
             $ref: '#/components/schemas/TransactionEntryRequest'
       example:
         ledger_id: 00000000-0000-4000-8000-000000000001
-        reference: payout-2026-0001
+        reference: tx-ref-1
         currency: USD
-        description: Marketplace seller payout
-        effective_at: '2026-01-15T10:30:00.000Z'
+        description: Payment settlement
+        metadata:
+          provider:
+            payment_id: pay_123
+          tags: [settlement, card]
         entries:
           - account_id: 00000000-0000-4000-8000-000000000101
-            direction: DEBIT
-            amount_minor: '2500'
+            signed_amount_minor: '1000'
             currency: USD
           - account_id: 00000000-0000-4000-8000-000000000102
-            direction: CREDIT
-            amount_minor: '2500'
+            signed_amount_minor: '-1000'
             currency: USD
     BulkCreateTransactionRequest:
       type: object
@@ -1032,34 +1273,6 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/CreateTransactionRequest'
-      example:
-        transactions:
-          - ledger_id: 00000000-0000-4000-8000-000000000001
-            reference: payout-2026-0001
-            currency: USD
-            description: Marketplace seller payout
-            entries:
-              - account_id: 00000000-0000-4000-8000-000000000101
-                direction: DEBIT
-                amount_minor: '2500'
-                currency: USD
-              - account_id: 00000000-0000-4000-8000-000000000102
-                direction: CREDIT
-                amount_minor: '2500'
-                currency: USD
-          - ledger_id: 00000000-0000-4000-8000-000000000001
-            reference: payout-2026-0002
-            currency: USD
-            description: Marketplace seller payout
-            entries:
-              - account_id: 00000000-0000-4000-8000-000000000101
-                direction: DEBIT
-                amount_minor: '4800'
-                currency: USD
-              - account_id: 00000000-0000-4000-8000-000000000102
-                direction: CREDIT
-                amount_minor: '4800'
-                currency: USD
     CreateTransactionResponse:
       type: object
       additionalProperties: false
@@ -1070,9 +1283,6 @@ components:
           format: uuid
         created:
           type: boolean
-      example:
-        transaction_id: 00000000-0000-4000-8000-000000000201
-        created: true
     BulkCreateTransactionResponse:
       type: object
       additionalProperties: false
@@ -1098,16 +1308,6 @@ components:
                 format: uuid
               created:
                 type: boolean
-      example:
-        created_count: 2
-        idempotent_count: 0
-        transactions:
-          - reference: payout-2026-0001
-            transaction_id: 00000000-0000-4000-8000-000000000201
-            created: true
-          - reference: payout-2026-0002
-            transaction_id: 00000000-0000-4000-8000-000000000202
-            created: true
     CorrectTransactionResponse:
       type: object
       additionalProperties: false
@@ -1121,10 +1321,6 @@ components:
           format: uuid
         created:
           type: boolean
-      example:
-        reversal_transaction_id: 00000000-0000-4000-8000-000000000203
-        corrected_transaction_id: 00000000-0000-4000-8000-000000000204
-        created: true
     ReverseTransactionRequest:
       type: object
       additionalProperties: false
@@ -1136,9 +1332,6 @@ components:
         description:
           type: string
           pattern: '^(?=.*\S).+$'
-      example:
-        reference: payout-2026-0001-reversal
-        description: Reverse duplicate seller payout
     CorrectTransactionRequest:
       type: object
       additionalProperties: false
@@ -1158,19 +1351,6 @@ components:
           minItems: 2
           items:
             $ref: '#/components/schemas/TransactionEntryRequest'
-      example:
-        reversal_reference: payout-2026-0001-reversal
-        corrected_reference: payout-2026-0001-corrected
-        description: Correct seller account allocation
-        entries:
-          - account_id: 00000000-0000-4000-8000-000000000101
-            direction: DEBIT
-            amount_minor: '2500'
-            currency: USD
-          - account_id: 00000000-0000-4000-8000-000000000103
-            direction: CREDIT
-            amount_minor: '2500'
-            currency: USD
     CreateAccountRequest:
       type: object
       additionalProperties: false
@@ -1192,20 +1372,25 @@ components:
         overdraft_policy:
           type: string
           enum: [ALLOW, DISALLOW]
+        grant_enabled:
+          type: boolean
+          default: false
+          description: Immutable capability. Grant-enabled accounts must use CREDIT side and DISALLOW overdraft.
         currency:
           type: string
           pattern: '^(?=.*\S).+$'
       example:
         ledger_id: 00000000-0000-4000-8000-000000000001
         code: '1000'
-        name: Platform cash
+        name: Cash
         side: DEBIT
-        overdraft_policy: DISALLOW
+        overdraft_policy: ALLOW
+        grant_enabled: false
         currency: USD
     Account:
       type: object
       additionalProperties: false
-      required: [id, tenant_id, ledger_id, code, name, side, overdraft_policy, currency, balance_minor, created_at]
+      required: [id, tenant_id, ledger_id, code, name, side, overdraft_policy, grant_enabled, currency, balance_minor, created_at]
       properties:
         id:
           type: string
@@ -1219,7 +1404,6 @@ components:
         code:
           type: string
           nullable: true
-          description: Always present in responses; null when the account has no code.
         name:
           type: string
         side:
@@ -1228,6 +1412,8 @@ components:
         overdraft_policy:
           type: string
           enum: [ALLOW, DISALLOW]
+        grant_enabled:
+          type: boolean
         currency:
           type: string
         balance_minor:
@@ -1240,11 +1426,12 @@ components:
         tenant_id: 11111111-1111-4111-8111-111111111111
         ledger_id: 00000000-0000-4000-8000-000000000001
         code: '1000'
-        name: Platform cash
+        name: Cash
         side: DEBIT
-        overdraft_policy: DISALLOW
+        overdraft_policy: ALLOW
+        grant_enabled: false
         currency: USD
-        balance_minor: '100000'
+        balance_minor: '100'
         created_at: '2026-01-01T00:00:00.000Z'
     AccountsPage:
       type: object
@@ -1258,23 +1445,10 @@ components:
         next_cursor:
           type: string
           nullable: true
-      example:
-        data:
-          - id: 00000000-0000-4000-8000-000000000101
-            tenant_id: 11111111-1111-4111-8111-111111111111
-            ledger_id: 00000000-0000-4000-8000-000000000001
-            code: '1000'
-            name: Platform cash
-            side: DEBIT
-            overdraft_policy: DISALLOW
-            currency: USD
-            balance_minor: '100000'
-            created_at: '2026-01-01T00:00:00.000Z'
-        next_cursor: null
     BalanceAsOfResponse:
       type: object
       additionalProperties: false
-      required: [account_id, timestamp, posted_minor, inflight_debit_minor, inflight_credit_minor, available_minor]
+      required: [account_id, timestamp, posted_minor, reserved_delta_minor, available_minor]
       properties:
         account_id:
           type: string
@@ -1284,23 +1458,14 @@ components:
           format: date-time
         posted_minor:
           type: string
-        inflight_debit_minor:
-          type: string
-        inflight_credit_minor:
+        reserved_delta_minor:
           type: string
         available_minor:
           type: string
-      example:
-        account_id: 00000000-0000-4000-8000-000000000101
-        timestamp: '2026-01-15T10:30:00.000Z'
-        posted_minor: '100000'
-        inflight_debit_minor: '2500'
-        inflight_credit_minor: '0'
-        available_minor: '97500'
     BalanceSnapshot:
       type: object
       additionalProperties: false
-      required: [id, tenant_id, ledger_id, account_id, event_type, source_id, posted_minor, inflight_debit_minor, inflight_credit_minor, effective_at, created_at]
+      required: [id, tenant_id, ledger_id, account_id, event_type, source_id, posted_minor, reserved_delta_minor, effective_at, created_at]
       properties:
         id:
           type: string
@@ -1322,9 +1487,7 @@ components:
           format: uuid
         posted_minor:
           type: string
-        inflight_debit_minor:
-          type: string
-        inflight_credit_minor:
+        reserved_delta_minor:
           type: string
         effective_at:
           type: string
@@ -1332,18 +1495,6 @@ components:
         created_at:
           type: string
           format: date-time
-      example:
-        id: 00000000-0000-4000-8000-000000000901
-        tenant_id: 11111111-1111-4111-8111-111111111111
-        ledger_id: 00000000-0000-4000-8000-000000000001
-        account_id: 00000000-0000-4000-8000-000000000101
-        event_type: TX_APPLIED
-        source_id: 00000000-0000-4000-8000-000000000201
-        posted_minor: '100000'
-        inflight_debit_minor: '0'
-        inflight_credit_minor: '0'
-        effective_at: '2026-01-15T10:30:00.000Z'
-        created_at: '2026-01-15T10:30:00.000Z'
     BalanceHistoryResponse:
       type: object
       additionalProperties: false
@@ -1356,20 +1507,6 @@ components:
         next_cursor:
           type: string
           nullable: true
-      example:
-        data:
-          - id: 00000000-0000-4000-8000-000000000901
-            tenant_id: 11111111-1111-4111-8111-111111111111
-            ledger_id: 00000000-0000-4000-8000-000000000001
-            account_id: 00000000-0000-4000-8000-000000000101
-            event_type: TX_APPLIED
-            source_id: 00000000-0000-4000-8000-000000000201
-            posted_minor: '100000'
-            inflight_debit_minor: '0'
-            inflight_credit_minor: '0'
-            effective_at: '2026-01-15T10:30:00.000Z'
-            created_at: '2026-01-15T10:30:00.000Z'
-        next_cursor: null
     TransactionsPage:
       type: object
       additionalProperties: false
@@ -1382,23 +1519,10 @@ components:
         next_cursor:
           type: string
           nullable: true
-      example:
-        data:
-          - id: 00000000-0000-4000-8000-000000000201
-            tenant_id: 11111111-1111-4111-8111-111111111111
-            ledger_id: 00000000-0000-4000-8000-000000000001
-            reference: payout-2026-0001
-            currency: USD
-            description: Marketplace seller payout
-            related_transaction_id: null
-            relation_type: null
-            effective_at: '2026-01-15T10:30:00.000Z'
-            created_at: '2026-01-15T10:30:00.000Z'
-        next_cursor: null
     Transaction:
       type: object
       additionalProperties: false
-      required: [id, tenant_id, ledger_id, reference, currency, description, related_transaction_id, relation_type, effective_at, created_at]
+      required: [id, tenant_id, ledger_id, reference, currency, description, metadata, related_transaction_id, relation_type, effective_at, created_at]
       properties:
         id:
           type: string
@@ -1416,6 +1540,10 @@ components:
         description:
           type: string
           nullable: true
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
         related_transaction_id:
           type: string
           format: uuid
@@ -1434,9 +1562,12 @@ components:
         id: 00000000-0000-4000-8000-000000000201
         tenant_id: 11111111-1111-4111-8111-111111111111
         ledger_id: 00000000-0000-4000-8000-000000000001
-        reference: payout-2026-0001
+        reference: tx-ref-1
         currency: USD
-        description: Marketplace seller payout
+        description: Payment settlement
+        metadata:
+          provider:
+            payment_id: pay_123
         related_transaction_id: null
         relation_type: null
         effective_at: '2026-01-01T00:01:00.000Z'
@@ -1450,7 +1581,7 @@ components:
           items:
             type: object
             required:
-              [id, transaction_id, account_id, direction, amount_minor, currency, created_at]
+              [id, transaction_id, account_id, signed_amount_minor, currency, created_at]
             properties:
               id:
                 type: string
@@ -1461,10 +1592,7 @@ components:
               account_id:
                 type: string
                 format: uuid
-              direction:
-                type: string
-                enum: [DEBIT, CREDIT]
-              amount_minor:
+              signed_amount_minor:
                 type: string
               currency:
                 type: string
@@ -1474,23 +1602,6 @@ components:
         next_cursor:
           type: string
           nullable: true
-      example:
-        data:
-          - id: 00000000-0000-4000-8000-000000000211
-            transaction_id: 00000000-0000-4000-8000-000000000201
-            account_id: 00000000-0000-4000-8000-000000000101
-            direction: DEBIT
-            amount_minor: '2500'
-            currency: USD
-            created_at: '2026-01-15T10:30:00.000Z'
-          - id: 00000000-0000-4000-8000-000000000212
-            transaction_id: 00000000-0000-4000-8000-000000000201
-            account_id: 00000000-0000-4000-8000-000000000102
-            direction: CREDIT
-            amount_minor: '2500'
-            currency: USD
-            created_at: '2026-01-15T10:30:00.000Z'
-        next_cursor: null
     TrialBalanceResponse:
       type: object
       required: [ledger_id, accounts, total_debits, total_credits]
@@ -1524,23 +1635,6 @@ components:
           type: string
         total_credits:
           type: string
-      example:
-        ledger_id: 00000000-0000-4000-8000-000000000001
-        accounts:
-          - account_id: 00000000-0000-4000-8000-000000000101
-            code: '1000'
-            name: Platform cash
-            normal_balance: DEBIT
-            balance: '2500'
-            balance_side: DEBIT
-          - account_id: 00000000-0000-4000-8000-000000000102
-            code: '2000'
-            name: Seller payable
-            normal_balance: CREDIT
-            balance: '2500'
-            balance_side: CREDIT
-        total_debits: '2500'
-        total_credits: '2500'
     CreateHoldRequest:
       type: object
       additionalProperties: false
@@ -1563,20 +1657,6 @@ components:
           minItems: 2
           items:
             $ref: '#/components/schemas/TransactionEntryRequest'
-      example:
-        ledger_id: 00000000-0000-4000-8000-000000000001
-        reference: order-7842-authorization
-        currency: USD
-        description: Reserve funds for marketplace order 7842
-        entries:
-          - account_id: 00000000-0000-4000-8000-000000000101
-            direction: DEBIT
-            amount_minor: '7500'
-            currency: USD
-          - account_id: 00000000-0000-4000-8000-000000000102
-            direction: CREDIT
-            amount_minor: '7500'
-            currency: USD
     CreateHoldResponse:
       type: object
       additionalProperties: false
@@ -1593,11 +1673,6 @@ components:
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
-      example:
-        hold_id: 00000000-0000-4000-8000-000000000301
-        created: true
-        state: HELD
-        remaining_amount_minor: '7500'
     CommitHoldRequest:
       type: object
       additionalProperties: false
@@ -1609,9 +1684,6 @@ components:
         amount_minor:
           type: string
           pattern: '^[1-9][0-9]*$'
-      example:
-        reference: order-7842-capture
-        amount_minor: '7500'
     CommitHoldResponse:
       type: object
       additionalProperties: false
@@ -1627,16 +1699,10 @@ components:
           type: boolean
         state:
           type: string
-          enum: [HELD, APPLIED]
+          enum: [HELD, APPLIED, VOIDED]
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
-      example:
-        hold_id: 00000000-0000-4000-8000-000000000301
-        transaction_id: 00000000-0000-4000-8000-000000000205
-        created: true
-        state: APPLIED
-        remaining_amount_minor: '0'
     VoidHoldResponse:
       type: object
       additionalProperties: false
@@ -1653,11 +1719,6 @@ components:
         remaining_amount_minor:
           type: string
           pattern: '^[0-9]+$'
-      example:
-        hold_id: 00000000-0000-4000-8000-000000000301
-        state: VOIDED
-        voided: true
-        remaining_amount_minor: '0'
     ReconciliationCriterion:
       type: object
       additionalProperties: false
@@ -1675,9 +1736,6 @@ components:
         date_tolerance_seconds:
           type: integer
           minimum: 0
-      example:
-        field: reference
-        operator: equals
     CreateReconciliationMatchingRuleRequest:
       type: object
       additionalProperties: false
@@ -1694,17 +1752,6 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/ReconciliationCriterion'
-      example:
-        name: Match marketplace payouts
-        description: Match provider settlements by reference, amount, and currency
-        criteria:
-          - field: reference
-            operator: equals
-          - field: amount
-            operator: equals
-            amount_tolerance_minor: '0'
-          - field: currency
-            operator: equals
     ReconciliationMatchingRule:
       type: object
       additionalProperties: false
@@ -1728,20 +1775,6 @@ components:
         created_at:
           type: string
           format: date-time
-      example:
-        id: 00000000-0000-4000-8000-000000000401
-        tenant_id: 11111111-1111-4111-8111-111111111111
-        name: Match marketplace payouts
-        description: Match provider settlements by reference, amount, and currency
-        criteria:
-          - field: reference
-            operator: equals
-          - field: amount
-            operator: equals
-            amount_tolerance_minor: '0'
-          - field: currency
-            operator: equals
-        created_at: '2026-01-15T11:00:00.000Z'
     IngestExternalRecordsRequest:
       type: object
       additionalProperties: false
@@ -1781,17 +1814,6 @@ components:
                 type: object
                 nullable: true
                 additionalProperties: true
-      example:
-        source: stripe-connect
-        records:
-          - id: po_1QExample
-            amount_minor: '2500'
-            currency: USD
-            reference: payout-2026-0001
-            description: Seller payout
-            date: '2026-01-15T10:30:00.000Z'
-            raw:
-              provider_status: paid
     ExternalRecordsUpload:
       type: object
       additionalProperties: false
@@ -1811,12 +1833,6 @@ components:
         created_at:
           type: string
           format: date-time
-      example:
-        upload_id: 00000000-0000-4000-8000-000000000501
-        tenant_id: 11111111-1111-4111-8111-111111111111
-        source: stripe-connect
-        record_count: 1
-        created_at: '2026-01-15T11:05:00.000Z'
     RunReconciliationRequest:
       type: object
       additionalProperties: false
@@ -1840,13 +1856,6 @@ components:
             format: uuid
         dry_run:
           type: boolean
-      example:
-        ledger_id: 00000000-0000-4000-8000-000000000001
-        upload_id: 00000000-0000-4000-8000-000000000501
-        strategy: one_to_one
-        matching_rule_ids:
-          - 00000000-0000-4000-8000-000000000401
-        dry_run: true
     ReconciliationRun:
       type: object
       additionalProperties: false
@@ -1899,32 +1908,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReconciliationResult'
-      example:
-        id: 00000000-0000-4000-8000-000000000601
-        tenant_id: 11111111-1111-4111-8111-111111111111
-        ledger_id: 00000000-0000-4000-8000-000000000001
-        upload_id: 00000000-0000-4000-8000-000000000501
-        strategy: one_to_one
-        status: completed
-        dry_run: true
-        matched_count: 1
-        unmatched_external_count: 0
-        unmatched_internal_count: 0
-        mismatched_count: 0
-        conflict_count: 0
-        started_at: '2026-01-15T11:06:00.000Z'
-        completed_at: '2026-01-15T11:06:01.000Z'
-        results:
-          - id: 00000000-0000-4000-8000-000000000701
-            run_id: 00000000-0000-4000-8000-000000000601
-            external_record_id: 00000000-0000-4000-8000-000000000501
-            external_id: po_1QExample
-            transaction_id: 00000000-0000-4000-8000-000000000201
-            status: matched
-            reason: Exact reference, amount, and currency match
-            candidate_transaction_ids:
-              - 00000000-0000-4000-8000-000000000201
-            created_at: '2026-01-15T11:06:01.000Z'
     ReconciliationResult:
       type: object
       additionalProperties: false
@@ -1961,17 +1944,6 @@ components:
         created_at:
           type: string
           format: date-time
-      example:
-        id: 00000000-0000-4000-8000-000000000701
-        run_id: 00000000-0000-4000-8000-000000000601
-        external_record_id: 00000000-0000-4000-8000-000000000501
-        external_id: po_1QExample
-        transaction_id: 00000000-0000-4000-8000-000000000201
-        status: matched
-        reason: Exact reference, amount, and currency match
-        candidate_transaction_ids:
-          - 00000000-0000-4000-8000-000000000201
-        created_at: '2026-01-15T11:06:01.000Z'
     ApiKey:
       type: object
       required: [id, tenant_id, name, role, created_at, revoked_at]
@@ -1994,13 +1966,6 @@ components:
           type: string
           format: date-time
           nullable: true
-      example:
-        id: 00000000-0000-4000-8000-000000000801
-        tenant_id: 11111111-1111-4111-8111-111111111111
-        name: marketplace-worker
-        role: SERVICE
-        created_at: '2026-01-15T09:00:00.000Z'
-        revoked_at: null
     ApiKeysListResponse:
       type: object
       required: [data]
@@ -2009,14 +1974,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ApiKey'
-      example:
-        data:
-          - id: 00000000-0000-4000-8000-000000000801
-            tenant_id: 11111111-1111-4111-8111-111111111111
-            name: marketplace-worker
-            role: SERVICE
-            created_at: '2026-01-15T09:00:00.000Z'
-            revoked_at: null
     CreateApiKeyResponse:
       type: object
       required: [api_key, key]
@@ -2025,12 +1982,3 @@ components:
           type: string
         key:
           $ref: '#/components/schemas/ApiKey'
-      example:
-        api_key: ll_live_example_key_shown_once
-        key:
-          id: 00000000-0000-4000-8000-000000000801
-          tenant_id: 11111111-1111-4111-8111-111111111111
-          name: marketplace-worker
-          role: SERVICE
-          created_at: '2026-01-15T09:00:00.000Z'
-          revoked_at: null

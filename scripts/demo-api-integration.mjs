@@ -76,15 +76,14 @@ try {
   const transfer = transferred.transactions.at(-1);
   assert.deepEqual(
     transfer.entries
-      .map(({ account_address, direction, amount_minor }) => ({
+      .map(({ account_address, signed_amount_minor }) => ({
         account_address,
-        direction,
-        amount_minor,
+        signed_amount_minor,
       }))
       .sort((left, right) => left.account_address.localeCompare(right.account_address)),
     [
-      { account_address: 'wallet:alice', direction: 'DEBIT', amount_minor: '2500' },
-      { account_address: 'wallet:bob', direction: 'CREDIT', amount_minor: '2500' },
+      { account_address: 'wallet:alice', signed_amount_minor: '2500' },
+      { account_address: 'wallet:bob', signed_amount_minor: '-2500' },
     ],
   );
 

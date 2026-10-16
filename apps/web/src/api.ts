@@ -7,8 +7,7 @@ export interface DemoAccount {
 
 export interface DemoEntry {
   account_address: string;
-  amount_minor: string;
-  direction: 'DEBIT' | 'CREDIT';
+  signed_amount_minor: string;
 }
 
 export interface DemoTransaction {
