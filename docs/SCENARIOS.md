@@ -92,7 +92,7 @@ Expected `HTTP 400`:
 
 The original transaction and balances remain unchanged.
 
-Description is also part of transaction identity in `postgres-adapter@0.1.3`. Retry the original amount and entries with a changed description:
+Description is also part of transaction identity in the current PostgreSQL adapter. Retry the original amount and entries with a changed description:
 
 ```sh
 api -X POST -H 'content-type: application/json' \

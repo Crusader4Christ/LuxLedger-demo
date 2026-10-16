@@ -187,13 +187,14 @@ export function App() {
           <div className="transaction-meta"><strong>{latest.description}</strong><code>{latest.id}</code></div>
           <div className="entries">
             {latest.entries.map((entry, index) => {
-              const direction = BigInt(entry.signed_amount_minor) > 0n ? 'DEBIT' : 'CREDIT';
-              const magnitude = BigInt(entry.signed_amount_minor);
+              const signed = BigInt(entry.signed_amount_minor);
+              const direction = signed > 0n ? 'DEBIT' : 'CREDIT';
+              const magnitude = signed < 0n ? -signed : signed;
               return (
                 <div className="entry" key={`${entry.account_address}-${index}`}>
                   <span className={`badge ${direction.toLowerCase()}`}>{direction}</span>
                   <strong>{entry.account_address}</strong>
-                  <span>{formatMoney((magnitude < 0n ? -magnitude : magnitude).toString(), state!.currency)}</span>
+                  <span>{formatMoney(magnitude.toString(), state!.currency)}</span>
                 </div>
               );
             })}

@@ -82,7 +82,7 @@ For a release:
 6. deploy API instances and require `/ready` before traffic;
 7. run the quickstart/smoke walkthrough and monitor errors/latency.
 
-The baseline migration has no application-level downgrade command. Rollback means deploying compatible code and, when schema rollback is truly necessary, applying a separately reviewed reverse migration or restoring a backup. Never edit a migration already applied to a shared environment.
+The current pre-production migration chain has no application-level downgrade command. Recreate disposable local databases that use the retired demo-only history. For any durable environment, schema rollback requires a separately reviewed reverse migration or a tested restore. Never edit a migration already applied to a shared environment.
 
 ## Production limitations and non-goals
 

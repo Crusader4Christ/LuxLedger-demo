@@ -16,7 +16,7 @@
     "start:hosted": "npm run db:migrate -w @luxledger/demo-api && npm run seed:demo -w @luxledger/demo-api && npm run start -w @luxledger/demo-api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @luxledger/demo-api",
-    "db:migrate:local": "node --env-file=.env node_modules/drizzle-kit/bin.cjs migrate --config apps/api/drizzle.config.ts",
+    "db:migrate:local": "node --env-file=.env scripts/migrate-local.mjs",
     "bootstrap:admin-key": "npm run bootstrap:admin-key -w @luxledger/demo-api",
     "bootstrap:admin-key:local": "node --env-file=.env --import tsx apps/api/src/bootstrap-admin-key.ts",
     "seed:demo": "npm run seed:demo -w @luxledger/demo-api",

@@ -87,10 +87,15 @@ try {
     ],
   );
 
-  const resetAgain = await json('/demo/reset', { method: 'POST' });
-  assert.equal(resetAgain.transactions[0].reference, 'demo-seed-funding-alice-v1');
-  assert.equal(resetAgain.accounts[0].balance_minor, '10000');
-  assert.equal(resetAgain.accounts[1].balance_minor, '0');
+  const [resetAgain, concurrentReset] = await Promise.all([
+    json('/demo/reset', { method: 'POST' }),
+    json('/demo/reset', { method: 'POST' }),
+  ]);
+  for (const resetState of [resetAgain, concurrentReset]) {
+    assert.equal(resetState.transactions[0].reference, 'demo-seed-funding-alice-v1');
+    assert.equal(resetState.accounts[0].balance_minor, '10000');
+    assert.equal(resetState.accounts[1].balance_minor, '0');
+  }
   console.log('Demo API integration flow passed');
 } finally {
   api.kill('SIGTERM');

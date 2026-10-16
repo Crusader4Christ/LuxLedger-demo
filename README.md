@@ -4,11 +4,7 @@ Small reference application showing how to compose `@luxledger/core`, Fastify, D
 
 The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
-The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact released package set installed by the demo.
-
-> **Upgrading from `0.1.x`:** LuxLedger `0.2.0` replaces trial-balance `is_contra` with `balance_side` and adds the required, nullable account `code` response field. Follow the [0.2.0 migration guide](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/releases/0.2.0.md) before upgrading consumers.
-
-> **Upgrading from `0.2.x`:** LuxLedger `0.3.0` replaces entry `direction` plus `amount_minor` with one non-zero `signed_amount_minor`: positive is DEBIT and negative is CREDIT. Upgrade every LuxLedger package, the database, and copied OpenAPI contract together by following the [0.3.0 migration guide](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/releases/0.3.0.md). The demo now uses the upstream consolidated migration chain; remove and recreate disposable local demo volumes made by the retired demo-only migration history before applying it.
+The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact package set pinned by the demo.
 
 ## 10–15 minute quickstart
 
@@ -53,6 +49,10 @@ npm run db:migrate:local
 ```
 
 Expected readiness output ends with `accepting connections`; migration output ends successfully with `migrations applied successfully` (or reports that there is nothing left to migrate).
+
+If the local database was created by the retired demo-only migration files,
+`db:migrate:local` stops with a reset instruction instead of applying the
+current migration chain over an incompatible schema.
 
 ### 3. Bootstrap a tenant and its first admin key
 
