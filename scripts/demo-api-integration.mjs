@@ -76,22 +76,26 @@ try {
   const transfer = transferred.transactions.at(-1);
   assert.deepEqual(
     transfer.entries
-      .map(({ account_address, direction, amount_minor }) => ({
+      .map(({ account_address, signed_amount_minor }) => ({
         account_address,
-        direction,
-        amount_minor,
+        signed_amount_minor,
       }))
       .sort((left, right) => left.account_address.localeCompare(right.account_address)),
     [
-      { account_address: 'wallet:alice', direction: 'DEBIT', amount_minor: '2500' },
-      { account_address: 'wallet:bob', direction: 'CREDIT', amount_minor: '2500' },
+      { account_address: 'wallet:alice', signed_amount_minor: '2500' },
+      { account_address: 'wallet:bob', signed_amount_minor: '-2500' },
     ],
   );
 
-  const resetAgain = await json('/demo/reset', { method: 'POST' });
-  assert.equal(resetAgain.transactions[0].reference, 'demo-seed-funding-alice-v1');
-  assert.equal(resetAgain.accounts[0].balance_minor, '10000');
-  assert.equal(resetAgain.accounts[1].balance_minor, '0');
+  const [resetAgain, concurrentReset] = await Promise.all([
+    json('/demo/reset', { method: 'POST' }),
+    json('/demo/reset', { method: 'POST' }),
+  ]);
+  for (const resetState of [resetAgain, concurrentReset]) {
+    assert.equal(resetState.transactions[0].reference, 'demo-seed-funding-alice-v1');
+    assert.equal(resetState.accounts[0].balance_minor, '10000');
+    assert.equal(resetState.accounts[1].balance_minor, '0');
+  }
   console.log('Demo API integration flow passed');
 } finally {
   api.kill('SIGTERM');

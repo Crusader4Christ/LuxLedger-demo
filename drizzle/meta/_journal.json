@@ -5,15 +5,36 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1784465607847,
-      "tag": "0000_baseline",
+      "when": 1791024201284,
+      "tag": "0000_initial-schema",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1785452032280,
-      "tag": "0001_account-code",
+      "when": 1791205624306,
+      "tag": "0001_grant_account_capability",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791314756970,
+      "tag": "0002_2026-10-06-signed-entry-amounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791386369702,
+      "tag": "0003_transaction_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791461019830,
+      "tag": "0004_grant_hold_allocations",
       "breakpoints": true
     }
   ]

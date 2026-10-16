@@ -22,7 +22,7 @@ A JWT is backed by its API-key record. Every authenticated request rechecks that
 - JSON field casing follows the OpenAPI schema. Ledger resources currently use `tenantId`/`createdAt`; accounting resources use snake case. Do not normalize fields client-side without an explicit mapping.
 - UUIDs are opaque strings. Do not infer ordering from them.
 - Timestamps are RFC 3339/ISO 8601 date-times and are returned in UTC. Send an explicit offset, preferably `Z`; never send a timezone-less local timestamp.
-- Monetary amounts and balances are base-10 **strings in minor units**, avoiding JSON number precision loss. For a two-decimal currency, `"1250"` means 12.50. Currency scale is not discovered or converted by this API; integrators own currency metadata and presentation.
+- Monetary amounts and balances are base-10 **strings in minor units**, avoiding JSON number precision loss. Entry `signed_amount_minor` is positive for DEBIT and negative for CREDIT; for a two-decimal currency, `"1250"` means 12.50 and `"-1250"` means a 12.50 credit. Currency scale is not discovered or converted by this API; integrators own currency metadata and presentation.
 - Currency is an explicit string on accounts, transactions, entries, and holds. The service checks equality; it does not perform FX conversion.
 - Client transaction and hold `reference` values are tenant-scoped idempotency keys. Repeating the identical payload returns `200` and `created: false`; reusing a reference with a materially changed posting payload returns `400 INVARIANT_VIOLATION`.
 - Supply `x-request-id` for end-to-end correlation. The service echoes it on the response; otherwise it generates a UUID.
@@ -66,7 +66,7 @@ For `429`, honor the integer `Retry-After` response header; the JSON body repeat
 
 ## Idempotency and concurrency
 
-Idempotency scope is `(tenant, reference)`, not ledger. Keep references globally unique within the tenant and immutable. Payload identity includes ledger, currency, normalized nullable description, explicit effective time, relation metadata, and the complete entry multiset. Entry order is ignored, but duplicate occurrence count and every account, direction, amount, and currency must match. Omitting `effective_at` asks the server to assign accounting time on first creation, so an identical retry must also omit it unless the original explicit value is known.
+Idempotency scope is `(tenant, reference)`, not ledger. Keep references globally unique within the tenant and immutable. Payload identity includes ledger, currency, normalized nullable description, explicit effective time, relation metadata, and the complete entry multiset. Entry order is ignored, but duplicate occurrence count and every account, signed amount, and currency must match. Omitting `effective_at` asks the server to assign accounting time on first creation, so an identical retry must also omit it unless the original explicit value is known.
 
 Bulk posting reports each item and counts created versus idempotently resolved items. If one new item fails, the entire request rolls back. Duplicate references inside one batch are rejected before persistence. Account rows are locked in account-ID order; postings that affect the same account serialize. Avoid concurrent batches against the same accounts and split imports larger than the OpenAPI maximum of 100. A concurrent retry may resolve an already committed reference; clients should use returned IDs rather than assuming creation.
 

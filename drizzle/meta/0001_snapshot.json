@@ -1,6 +1,6 @@
 {
-  "id": "114856f5-55ef-430e-a302-1b82614cb6ef",
-  "prevId": "9c9b53d8-0fc0-4c6d-a62c-4eaf79ef2892",
+  "id": "f4f72841-6c94-4c5f-a9d4-d460b834f0c8",
+  "prevId": "d31da8d3-2186-45bf-934a-2e4a8944beab",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -60,6 +60,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "balance_minor": {
           "name": "balance_minor",
           "type": "bigint",
@@ -80,6 +86,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "0"
+        },
+        "grant_enabled": {
+          "name": "grant_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -123,6 +136,33 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "accounts_tenant_ledger_id_uq": {
+          "name": "accounts_tenant_ledger_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -182,12 +222,40 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "cascade"
+        },
+        "accounts_asset_fk": {
+          "name": "accounts_asset_fk",
+          "tableFrom": "accounts",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "tenant_id",
+            "asset_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "accounts_inflight_debit_nonnegative_chk": {
+          "name": "accounts_inflight_debit_nonnegative_chk",
+          "value": "\"accounts\".\"inflight_debit_minor\" >= 0"
+        },
+        "accounts_inflight_credit_nonnegative_chk": {
+          "name": "accounts_inflight_credit_nonnegative_chk",
+          "value": "\"accounts\".\"inflight_credit_minor\" >= 0"
+        },
+        "accounts_grant_enabled_shape_chk": {
+          "name": "accounts_grant_enabled_shape_chk",
+          "value": "not \"accounts\".\"grant_enabled\" or (\"accounts\".\"side\" = 'CREDIT' and \"accounts\".\"overdraft_policy\" = 'DISALLOW')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.api_keys": {
@@ -293,6 +361,117 @@
         "api_keys_role_chk": {
           "name": "api_keys_role_chk",
           "value": "\"api_keys\".\"role\" in ('ADMIN', 'SERVICE')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.assets": {
+      "name": "assets",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuid_v7()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scale": {
+          "name": "scale",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "assets_tenant_code_uq": {
+          "name": "assets_tenant_code_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assets_tenant_id_uq": {
+          "name": "assets_tenant_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assets_tenant_id_tenants_id_fk": {
+          "name": "assets_tenant_id_tenants_id_fk",
+          "tableFrom": "assets",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "assets_code_chk": {
+          "name": "assets_code_chk",
+          "value": "\"assets\".\"code\" ~ '^[A-Z][A-Z0-9_]{1,31}$'"
+        },
+        "assets_scale_chk": {
+          "name": "assets_scale_chk",
+          "value": "\"assets\".\"scale\" between 0 and 18"
         }
       },
       "isRLSEnabled": false
@@ -508,6 +687,747 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.credit_grant_capacity_versions": {
+      "name": "credit_grant_capacity_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuid_v7()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grant_id": {
+          "name": "grant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_entry_id": {
+          "name": "source_entry_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_minor": {
+          "name": "granted_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reversed_minor": {
+          "name": "reversed_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consumed_minor": {
+          "name": "consumed_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compensated_minor": {
+          "name": "compensated_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expired_minor": {
+          "name": "expired_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "remaining_minor": {
+          "name": "remaining_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "credit_grant_capacity_versions_grant_version_uq": {
+          "name": "credit_grant_capacity_versions_grant_version_uq",
+          "columns": [
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_capacity_versions_source_entry_uq": {
+          "name": "credit_grant_capacity_versions_source_entry_uq",
+          "columns": [
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_capacity_versions_tenant_grant_version_idx": {
+          "name": "credit_grant_capacity_versions_tenant_grant_version_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "credit_grant_capacity_versions_tenant_id_tenants_id_fk": {
+          "name": "credit_grant_capacity_versions_tenant_id_tenants_id_fk",
+          "tableFrom": "credit_grant_capacity_versions",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "credit_grant_capacity_versions_grant_fk": {
+          "name": "credit_grant_capacity_versions_grant_fk",
+          "tableFrom": "credit_grant_capacity_versions",
+          "tableTo": "credit_grants",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id",
+            "account_id",
+            "grant_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "ledger_id",
+            "account_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_grant_capacity_versions_source_entry_fk": {
+          "name": "credit_grant_capacity_versions_source_entry_fk",
+          "tableFrom": "credit_grant_capacity_versions",
+          "tableTo": "credit_grant_entries",
+          "columnsFrom": [
+            "grant_id",
+            "source_entry_id"
+          ],
+          "columnsTo": [
+            "grant_id",
+            "entry_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "credit_grant_capacity_versions_version_nonnegative_chk": {
+          "name": "credit_grant_capacity_versions_version_nonnegative_chk",
+          "value": "\"credit_grant_capacity_versions\".\"version\" >= 0"
+        },
+        "credit_grant_capacity_versions_totals_nonnegative_chk": {
+          "name": "credit_grant_capacity_versions_totals_nonnegative_chk",
+          "value": "\"credit_grant_capacity_versions\".\"granted_minor\" >= 0 and \"credit_grant_capacity_versions\".\"reversed_minor\" >= 0 and \"credit_grant_capacity_versions\".\"consumed_minor\" >= 0 and \"credit_grant_capacity_versions\".\"compensated_minor\" >= 0 and \"credit_grant_capacity_versions\".\"expired_minor\" >= 0 and \"credit_grant_capacity_versions\".\"remaining_minor\" >= 0"
+        },
+        "credit_grant_capacity_versions_remaining_chk": {
+          "name": "credit_grant_capacity_versions_remaining_chk",
+          "value": "\"credit_grant_capacity_versions\".\"remaining_minor\" = \"credit_grant_capacity_versions\".\"granted_minor\" + \"credit_grant_capacity_versions\".\"compensated_minor\" - \"credit_grant_capacity_versions\".\"reversed_minor\" - \"credit_grant_capacity_versions\".\"consumed_minor\" - \"credit_grant_capacity_versions\".\"expired_minor\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.credit_grant_entries": {
+      "name": "credit_grant_entries",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grant_id": {
+          "name": "grant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "credit_grant_entry_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "credit_grant_entries_tenant_grant_idx": {
+          "name": "credit_grant_entries_tenant_grant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_entries_tenant_account_idx": {
+          "name": "credit_grant_entries_tenant_account_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_entries_tenant_entry_idx": {
+          "name": "credit_grant_entries_tenant_entry_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_entries_one_issuance_uq": {
+          "name": "credit_grant_entries_one_issuance_uq",
+          "columns": [
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"credit_grant_entries\".\"kind\" = 'ISSUANCE'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grant_entries_one_reversal_uq": {
+          "name": "credit_grant_entries_one_reversal_uq",
+          "columns": [
+            {
+              "expression": "grant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"credit_grant_entries\".\"kind\" = 'REVERSAL'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "credit_grant_entries_tenant_id_tenants_id_fk": {
+          "name": "credit_grant_entries_tenant_id_tenants_id_fk",
+          "tableFrom": "credit_grant_entries",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "credit_grant_entries_grant_fk": {
+          "name": "credit_grant_entries_grant_fk",
+          "tableFrom": "credit_grant_entries",
+          "tableTo": "credit_grants",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id",
+            "account_id",
+            "grant_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "ledger_id",
+            "account_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_grant_entries_entry_fk": {
+          "name": "credit_grant_entries_entry_fk",
+          "tableFrom": "credit_grant_entries",
+          "tableTo": "entries",
+          "columnsFrom": [
+            "tenant_id",
+            "account_id",
+            "entry_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "account_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "credit_grant_entries_pk": {
+          "name": "credit_grant_entries_pk",
+          "columns": [
+            "grant_id",
+            "entry_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "credit_grant_entries_amount_positive_chk": {
+          "name": "credit_grant_entries_amount_positive_chk",
+          "value": "\"credit_grant_entries\".\"amount_minor\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.credit_grants": {
+      "name": "credit_grants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuid_v7()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "funding_account_id": {
+          "name": "funding_account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_reference": {
+          "name": "external_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "credit_grants_tenant_reference_uq": {
+          "name": "credit_grants_tenant_reference_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grants_tenant_ledger_account_id_uq": {
+          "name": "credit_grants_tenant_ledger_account_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grants_tenant_account_created_id_idx": {
+          "name": "credit_grants_tenant_account_created_id_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grants_tenant_due_idx": {
+          "name": "credit_grants_tenant_due_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "credit_grants_transaction_uq": {
+          "name": "credit_grants_transaction_uq",
+          "columns": [
+            {
+              "expression": "transaction_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "credit_grants_tenant_id_tenants_id_fk": {
+          "name": "credit_grants_tenant_id_tenants_id_fk",
+          "tableFrom": "credit_grants",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "credit_grants_tenant_ledger_fk": {
+          "name": "credit_grants_tenant_ledger_fk",
+          "tableFrom": "credit_grants",
+          "tableTo": "ledgers",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_grants_account_scope_fk": {
+          "name": "credit_grants_account_scope_fk",
+          "tableFrom": "credit_grants",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id",
+            "account_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "ledger_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_grants_funding_account_scope_fk": {
+          "name": "credit_grants_funding_account_scope_fk",
+          "tableFrom": "credit_grants",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id",
+            "funding_account_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "ledger_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "credit_grants_transaction_scope_fk": {
+          "name": "credit_grants_transaction_scope_fk",
+          "tableFrom": "credit_grants",
+          "tableTo": "transactions",
+          "columnsFrom": [
+            "tenant_id",
+            "ledger_id",
+            "transaction_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "ledger_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "credit_grants_accounts_chk": {
+          "name": "credit_grants_accounts_chk",
+          "value": "\"credit_grants\".\"account_id\" <> \"credit_grants\".\"funding_account_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.entries": {
       "name": "entries",
       "schema": "",
@@ -553,6 +1473,12 @@
         "currency": {
           "name": "currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -609,6 +1535,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "entries_tenant_account_id_uq": {
+          "name": "entries_tenant_account_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -650,6 +1603,21 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "cascade"
+        },
+        "entries_asset_fk": {
+          "name": "entries_asset_fk",
+          "tableFrom": "entries",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "tenant_id",
+            "asset_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -703,6 +1671,12 @@
         "currency": {
           "name": "currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -800,6 +1774,21 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "cascade"
+        },
+        "hold_entries_asset_fk": {
+          "name": "hold_entries_asset_fk",
+          "tableFrom": "hold_entries",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "tenant_id",
+            "asset_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -840,6 +1829,12 @@
         "currency": {
           "name": "currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -953,6 +1948,21 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "cascade"
+        },
+        "holds_asset_fk": {
+          "name": "holds_asset_fk",
+          "tableFrom": "holds",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "tenant_id",
+            "asset_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1011,6 +2021,27 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "ledgers_tenant_id_uq": {
+          "name": "ledgers_tenant_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1834,6 +2865,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "asset_id": {
+          "name": "asset_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -1909,6 +2946,33 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "transactions_tenant_ledger_id_uq": {
+          "name": "transactions_tenant_ledger_id_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2024,6 +3088,21 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "cascade"
+        },
+        "transactions_asset_fk": {
+          "name": "transactions_asset_fk",
+          "tableFrom": "transactions",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "tenant_id",
+            "asset_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2056,6 +3135,17 @@
         "HOLD_COMMITTED",
         "HOLD_VOIDED",
         "ADJUSTMENT"
+      ]
+    },
+    "public.credit_grant_entry_kind": {
+      "name": "credit_grant_entry_kind",
+      "schema": "public",
+      "values": [
+        "ISSUANCE",
+        "REVERSAL",
+        "CONSUMPTION",
+        "COMPENSATION",
+        "EXPIRATION"
       ]
     },
     "public.entry_direction": {

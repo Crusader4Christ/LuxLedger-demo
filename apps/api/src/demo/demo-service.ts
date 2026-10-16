@@ -1,9 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  AccountSide,
-  EntryDirection,
-  type ApplicationServices,
-} from '@luxledger/core/application';
+import { AccountSide, type ApplicationServices } from '@luxledger/core/application';
 import { OverdraftPolicy, type AccountEntity } from '@luxledger/core/account';
 import type { DbClient } from '@luxledger/postgres-adapter';
 
@@ -57,7 +53,9 @@ export class DemoService {
         .map((account) => ({
           id: account.id,
           address: account.name,
-          balance_minor: account.balanceMinor.toString(),
+          balance_minor: (
+            account.side === AccountSide.CREDIT ? -account.balanceMinor : account.balanceMinor
+          ).toString(),
           currency: account.currency,
         }))
         .sort((left, right) => left.address.localeCompare(right.address)),
@@ -68,8 +66,7 @@ export class DemoService {
         created_at: transaction.createdAt?.toISOString() ?? null,
         entries: transaction.entries.map((entry) => ({
           account_address: addresses.get(String(entry.accountId)) ?? String(entry.accountId),
-          amount_minor: entry.money.amountMinor.toString(),
-          direction: entry.direction,
+          signed_amount_minor: entry.money.amountMinor.toString(),
         })),
       })),
     };
@@ -105,8 +102,8 @@ export class DemoService {
       currency: CURRENCY,
       description: `Fund ${destination.name}`,
       entries: [
-        entry(funding.id, EntryDirection.DEBIT, amount),
-        entry(destination.id, EntryDirection.CREDIT, amount),
+        entry(funding.id, amount),
+        entry(destination.id, -amount),
       ],
     });
     return this.getState();
@@ -130,8 +127,8 @@ export class DemoService {
       currency: CURRENCY,
       description: `${source.name} to ${destination.name}`,
       entries: [
-        entry(source.id, EntryDirection.DEBIT, amount),
-        entry(destination.id, EntryDirection.CREDIT, amount),
+        entry(source.id, amount),
+        entry(destination.id, -amount),
       ],
     });
     return this.getState();
@@ -179,6 +176,9 @@ export class DemoService {
       : (await this.services.apiKeys.authenticate(this.config.adminApiKey)).tenantId;
     if (tenantId === undefined) {
       throw new Error('Unable to create the demo tenant');
+    }
+    if (!(await this.services.assets.list(tenantId)).some((asset) => asset.code === CURRENCY)) {
+      await this.services.assets.create({ tenantId, code: CURRENCY, scale: 2 });
     }
     let ledger = (await this.services.ledgers.list(tenantId)).find((item) => item.name === LEDGER_NAME);
     ledger ??= await this.services.ledgers.create({ tenantId, name: LEDGER_NAME });
@@ -250,9 +250,8 @@ const findAccount = (accounts: AccountEntity[], address: string): AccountEntity 
   return account;
 };
 
-const entry = (accountId: string, direction: 'DEBIT' | 'CREDIT', amountMinor: bigint) => ({
+const entry = (accountId: string, signedAmountMinor: bigint) => ({
   accountId,
-  direction,
-  amountMinor,
+  signedAmountMinor,
   currency: CURRENCY,
 });

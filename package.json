@@ -16,16 +16,17 @@
     "start:hosted": "npm run db:migrate -w @luxledger/demo-api && npm run seed:demo -w @luxledger/demo-api && npm run start -w @luxledger/demo-api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @luxledger/demo-api",
-    "db:migrate:local": "node --env-file=.env node_modules/drizzle-kit/bin.cjs migrate --config apps/api/drizzle.config.ts",
+    "db:migrate:local": "node --env-file=.env scripts/migrate-local.mjs",
     "bootstrap:admin-key": "npm run bootstrap:admin-key -w @luxledger/demo-api",
     "bootstrap:admin-key:local": "node --env-file=.env --import tsx apps/api/src/bootstrap-admin-key.ts",
     "seed:demo": "npm run seed:demo -w @luxledger/demo-api",
     "seed:demo:local": "node --env-file=.env --import tsx apps/api/src/seed-demo.ts",
     "reset:demo": "npm run reset:demo -w @luxledger/demo-api",
     "build": "npm run build --workspaces --if-present",
+    "verify:openapi": "node scripts/verify-openapi.mjs",
     "test:integration": "node scripts/demo-api-integration.mjs",
     "test:e2e": "node scripts/prepare-test-db.mjs && playwright test",
-    "test": "npm run typecheck && npm run build && npm run test:integration && npm run test:e2e"
+    "test": "npm run verify:openapi && npm run typecheck && npm run build && npm run test:integration && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

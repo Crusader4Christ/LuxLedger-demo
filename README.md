@@ -1,12 +1,10 @@
 # LuxLedger Demo
 
-Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.2.0](openapi/openapi.yaml).
+Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.3.0](openapi/openapi.yaml).
 
 The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
-The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact released package set installed by the demo.
-
-> **Upgrading from `0.1.x`:** LuxLedger `0.2.0` replaces trial-balance `is_contra` with `balance_side` and adds the required, nullable account `code` response field. Follow the [0.2.0 migration guide](https://github.com/Crusader4Christ/LuxLedger/blob/main/docs/releases/0.2.0.md) before upgrading consumers.
+The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact package set pinned by the demo.
 
 ## 10–15 minute quickstart
 
@@ -51,6 +49,10 @@ npm run db:migrate:local
 ```
 
 Expected readiness output ends with `accepting connections`; migration output ends successfully with `migrations applied successfully` (or reports that there is nothing left to migrate).
+
+If the local database was created by the retired demo-only migration files,
+`db:migrate:local` stops with a reset instruction instead of applying the
+current migration chain over an incompatible schema.
 
 ### 3. Bootstrap a tenant and its first admin key
 
@@ -134,9 +136,9 @@ Then run the complete verification pipeline:
 npm test
 ```
 
-It runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies `reset → transfer → balances/entries` through the API, and repeats the flow through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
+It first verifies that `openapi/openapi.yaml` is byte-for-byte identical to the contract shipped by the installed `@luxledger/http` package, then runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies `reset → transfer → balances/entries` through the API, and repeats the flow through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
 
-Individual commands are `npm run test:integration` and `npm run test:e2e`.
+Individual commands are `npm run verify:openapi`, `npm run test:integration`, and `npm run test:e2e`.
 
 ## Private hosted sales demo
 
@@ -219,7 +221,7 @@ Each body has this shape and is followed by `201`:
 ### Post a balanced transaction — `201`
 
 ```sh
-TX_BODY="{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Quickstart sale\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"direction\":\"DEBIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"direction\":\"CREDIT\",\"amount_minor\":\"1250\",\"currency\":\"USD\"}]}"
+TX_BODY="{\"ledger_id\":\"$LEDGER_ID\",\"reference\":\"quickstart-sale-001\",\"currency\":\"USD\",\"description\":\"Quickstart sale\",\"entries\":[{\"account_id\":\"$DEBIT_ACCOUNT_ID\",\"signed_amount_minor\":\"1250\",\"currency\":\"USD\"},{\"account_id\":\"$CREDIT_ACCOUNT_ID\",\"signed_amount_minor\":\"-1250\",\"currency\":\"USD\"}]}"
 TX_RESPONSE="$(curl -sS -w '\n%{http_code}' -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'content-type: application/json' \
   -d "$TX_BODY" "$BASE_URL/v1/transactions")"
@@ -270,7 +272,7 @@ Representative bodies (IDs/timestamps vary), each followed by `200`:
 ```
 
 ```json
-{"data":[{"id":"<uuid>","transaction_id":"<transaction uuid>","account_id":"<account uuid>","direction":"DEBIT","amount_minor":"1250","currency":"USD","created_at":"<date-time>"}],"next_cursor":null}
+{"data":[{"id":"<uuid>","transaction_id":"<transaction uuid>","account_id":"<account uuid>","signed_amount_minor":"1250","currency":"USD","created_at":"<date-time>"}],"next_cursor":null}
 ```
 
 ```json
