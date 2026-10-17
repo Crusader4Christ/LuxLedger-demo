@@ -7,6 +7,7 @@ import {
   type DemoState,
   requestToCurl,
 } from './api';
+import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
 const GITHUB_URL = 'https://github.com/Crusader4Christ/LuxLedger';
 const DESIGN_PARTNER_URL =
@@ -187,19 +188,23 @@ export function App() {
           <div className="transaction-meta"><strong>{latest.description}</strong><code>{latest.id}</code></div>
           <div className="entries">
             {latest.entries.map((entry, index) => {
-              const signed = BigInt(entry.signed_amount_minor);
-              const direction = signed > 0n ? 'DEBIT' : 'CREDIT';
-              const magnitude = signed < 0n ? -signed : signed;
+              const display = toEntryDisplay(entry.signed_amount_minor);
               return (
                 <div className="entry" key={`${entry.account_address}-${index}`}>
-                  <span className={`badge ${direction.toLowerCase()}`}>{direction}</span>
+                  <span className={`badge ${display?.direction.toLowerCase() ?? 'invalid'}`}>
+                    {display?.direction ?? 'INVALID'}
+                  </span>
                   <strong>{entry.account_address}</strong>
-                  <span>{formatMoney(magnitude.toString(), state!.currency)}</span>
+                  <span>{formatMoney(display?.magnitudeMinor ?? '0', state!.currency)}</span>
                 </div>
               );
             })}
           </div>
-          <p className="balanced">✓ Debits and credits balance</p>
+          <p className="balanced">
+            {entriesAreBalanced(latest.entries)
+              ? '✓ Debits and credits balance'
+              : '⚠ Debits and credits do not balance'}
+          </p>
         </> : <p className="muted">The two ledger entries will appear here after a transfer.</p>}
       </section>
 

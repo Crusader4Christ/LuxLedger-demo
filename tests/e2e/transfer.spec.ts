@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { requestToCurl } from '../../apps/web/src/api';
+import { entriesAreBalanced, toEntryDisplay } from '../../apps/web/src/ledger-display';
+
+test('signed entry display rejects zero and derives balance from the entries', () => {
+  expect(toEntryDisplay('25')).toEqual({ direction: 'DEBIT', magnitudeMinor: '25' });
+  expect(toEntryDisplay('-25')).toEqual({ direction: 'CREDIT', magnitudeMinor: '25' });
+  expect(toEntryDisplay('0')).toBeNull();
+  expect(entriesAreBalanced([{ signed_amount_minor: '25' }, { signed_amount_minor: '-25' }])).toBe(
+    true,
+  );
+  expect(entriesAreBalanced([{ signed_amount_minor: '25' }])).toBe(false);
+  expect(entriesAreBalanced([{ signed_amount_minor: '0' }])).toBe(false);
+});
 
 test('curl preview safely quotes apostrophes in JSON values', () => {
   const curl = requestToCurl(
