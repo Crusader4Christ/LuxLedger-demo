@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import postgres from 'postgres';
+import { migrationHistoryMatches, npmExecutable } from './migration-history.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (databaseUrl === undefined || databaseUrl.length === 0) {
@@ -24,9 +25,10 @@ try {
     const applied = await sql`
       select hash from drizzle.__drizzle_migrations order by created_at, id
     `;
-    const historyMatches =
-      applied.length <= expectedHashes.length &&
-      applied.every(({ hash }, index) => hash === expectedHashes[index]);
+    const historyMatches = migrationHistoryMatches(
+      applied.map(({ hash }) => hash),
+      expectedHashes,
+    );
     if (!historyMatches) {
       throw new Error(
         'Incompatible demo migration history detected. For the disposable local demo, run ' +
@@ -39,7 +41,7 @@ try {
 }
 
 const child = spawn(
-  'npm',
+  npmExecutable(),
   ['run', 'db:migrate'],
   { env: process.env, stdio: 'inherit' },
 );

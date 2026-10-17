@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import postgres from 'postgres';
 
 const databaseUrl = process.env.DATABASE_URL_TEST ??
   'postgresql://luxledger:luxledger@127.0.0.1:5433/luxledger_demo_test';
@@ -60,6 +61,17 @@ try {
   );
   assert.equal(seeded.transactions.length, 1);
   assert.equal(seeded.transactions[0].reference, 'demo-seed-funding-alice-v1');
+  const sql = postgres(databaseUrl, { max: 1 });
+  try {
+    const [funding] = await sql`
+      select side, balance_minor::text as balance_minor
+      from accounts
+      where name = 'system:funding'
+    `;
+    assert.deepEqual(funding, { side: 'DEBIT', balance_minor: '10000' });
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
 
   const transferred = await json('/demo/transfers', {
     method: 'POST',
