@@ -1,6 +1,6 @@
 # LuxLedger Demo
 
-Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.3.0](openapi/openapi.yaml).
+Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.4.0](openapi/openapi.yaml).
 
 The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
