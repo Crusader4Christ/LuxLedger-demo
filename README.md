@@ -169,7 +169,9 @@ npm test
 
 It first verifies that `openapi/openapi.yaml` is byte-for-byte identical to the contract shipped by the installed `@luxledger/http` package, then runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies transfer, hold/commit/void, available balances, history, reconciliation match/mismatch/unmatched outcomes and reset through the API, and repeats the lifecycle and view switching through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
 
-Individual commands are `npm run verify:openapi`, `npm run test:integration`, and `npm run test:e2e`.
+Individual commands are `npm run test:unit`, `npm run verify:openapi`, `npm run test:integration`, and `npm run test:e2e`.
+
+Tests live in `tests/unit/`, `tests/integration/`, and `tests/e2e/`. The `scripts/` directory contains setup, database preparation, and other supporting commands.
 
 ## Private hosted sales demo
 

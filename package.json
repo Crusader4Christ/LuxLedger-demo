@@ -24,8 +24,8 @@
     "reset:demo": "npm run reset:demo -w @luxledger/demo-api",
     "build": "npm run build --workspaces --if-present",
     "verify:openapi": "node scripts/verify-openapi.mjs",
-    "test:unit": "node --test scripts/*.test.mjs",
-    "test:integration": "node scripts/demo-api-integration.mjs",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:integration": "node tests/integration/demo-api.test.mjs",
     "test:e2e": "node scripts/prepare-test-db.mjs && playwright test",
     "test": "npm run test:unit && npm run verify:openapi && npm run typecheck && npm run build && npm run test:integration && npm run test:e2e"
   },
