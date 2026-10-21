@@ -52,8 +52,12 @@ Open the source or architecture diagram and show the composition:
 Use the **API docs** link to open `/docs`. Emphasize typed HTTP contracts, idempotent transaction references, tenant
 isolation, health/readiness, structured logs, and PostgreSQL transactions.
 
-Keep the conversation on the working MVP. Holds, reconciliation, customer identity, and a hosted
-administration console are possible follow-up scope, not features claimed by this demo UI.
+Optionally reserve another USD 25.00 in Operator view. Show that posted balances stay unchanged
+while available funds decrease, then commit or void the hold and inspect its history events.
+Switch to Finance to show the trial balance and reconcile the default opening statement record.
+Use `99.00` to show a mismatch. The mode selector changes presentation; hosted access control
+still protects the shared demo. Customer identity and a hosted administration console remain
+follow-up scope.
 
 ## Qualification questions
 

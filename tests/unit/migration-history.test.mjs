@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { migrationHistoryMatches, npmExecutable } from './migration-history.mjs';
+import { migrationHistoryMatches, npmExecutable } from '../../scripts/migration-history.mjs';
 
 test('accepts an exact or pending-prefix migration history', () => {
   assert.equal(migrationHistoryMatches(['a', 'b'], ['a', 'b']), true);

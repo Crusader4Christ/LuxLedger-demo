@@ -99,6 +99,41 @@ try {
     ],
   );
 
+  const post = (path, body) => json(path, { method: 'POST',
+    headers: body === undefined ? undefined : { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const held = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '1000' });
+  assert.equal(held.accounts[0].balance_minor, '7500');
+  assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '6500');
+  assert.equal(held.holds[0].state, 'HELD');
+  const holdId = held.holds[0].id;
+  const rejected = await fetch(`${apiUrl}/demo/transfers`, { method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ from: 'wallet:alice', to: 'wallet:bob', amount_minor: '7000' }) });
+  assert.equal(rejected.status, 409);
+  const committed = await post(`/demo/holds/${holdId}/commit`);
+  assert.equal(committed.accounts[0].balance_minor, '6500');
+  assert.equal(committed.accounts[1].balance_minor, '3500');
+  assert.equal(committed.holds[0].state, 'APPLIED');
+  const replay = await post(`/demo/holds/${holdId}/commit`);
+  assert.equal(replay.transactions.length, committed.transactions.length);
+  const heldAgain = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '500' });
+  const voided = await post(`/demo/holds/${heldAgain.holds[0].id}/void`);
+  assert.equal(voided.holds[0].state, 'VOIDED');
+  const details = await json('/demo/accounts/wallet:alice/details');
+  assert.equal(details.available_minor, '6500');
+  assert.equal(voided.accounts[0].balance_minor, '6500');
+  for (const event of ['HOLD_CREATED', 'HOLD_COMMITTED', 'HOLD_VOIDED']) {
+    assert.ok(details.history.some(item => item.event === event));
+  }
+  assert.equal(voided.trial_balance.debits_minor, voided.trial_balance.credits_minor);
+  const matched = await post('/demo/reconciliation', { reference: transfer.reference, amount_minor: '2500' });
+  assert.equal(matched.matchedCount, 1);
+  const mismatch = await post('/demo/reconciliation', { reference: transfer.reference, amount_minor: '2400' });
+  assert.equal(mismatch.mismatchedCount, 1);
+  const missing = await post('/demo/reconciliation', { reference: 'missing-reference', amount_minor: '100' });
+  assert.equal(missing.unmatchedExternalCount, 1);
+  assert.ok(missing.unmatchedInternalCount > 0);
+
   const [resetAgain, concurrentReset] = await Promise.all([
     json('/demo/reset', { method: 'POST' }),
     json('/demo/reset', { method: 'POST' }),
@@ -107,6 +142,8 @@ try {
     assert.equal(resetState.transactions[0].reference, 'demo-seed-funding-alice-v1');
     assert.equal(resetState.accounts[0].balance_minor, '10000');
     assert.equal(resetState.accounts[1].balance_minor, '0');
+    assert.equal(resetState.holds.length, 0);
+    assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '10000');
   }
   console.log('Demo API integration flow passed');
 } finally {
