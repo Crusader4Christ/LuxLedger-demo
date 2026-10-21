@@ -88,6 +88,33 @@ export const registerDemoRoutes = (
     },
   );
 
+  const transferBody = { type: 'object', additionalProperties: false,
+    required: ['from', 'to', 'amount_minor'], properties: {
+      from: { type: 'string', minLength: 1, maxLength: 80 },
+      to: { type: 'string', minLength: 1, maxLength: 80 },
+      amount_minor: { type: 'string', pattern: '^[1-9][0-9]*$' },
+    } };
+  server.post<{ Body: { from: string; to: string; amount_minor: string } }>(
+    '/demo/holds', { schema: { body: transferBody } }, async (request, reply) => {
+      try { return await demo.createHold(request.body.from, request.body.to, request.body.amount_minor); }
+      catch (error) { return handleError(reply, error); }
+    });
+  for (const action of ['commit', 'void'] as const) {
+    server.post<{ Params: { id: string } }>(`/demo/holds/:id/${action}`,
+      { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string', format: 'uuid' } } } } },
+      async (request, reply) => {
+        try { return await demo.resolveHold(request.params.id, action); }
+        catch (error) { return handleError(reply, error); }
+      });
+  }
+  server.post<{ Body: { reference: string; amount_minor: string } }>('/demo/reconciliation',
+    { schema: { body: { type: 'object', additionalProperties: false, required: ['reference', 'amount_minor'],
+      properties: { reference: { type: 'string', minLength: 1, maxLength: 255 },
+        amount_minor: { type: 'string', pattern: '^[1-9][0-9]*$' } } } } }, async (request, reply) => {
+      try { return await demo.reconcile(request.body.reference, request.body.amount_minor); }
+      catch (error) { return handleError(reply, error); }
+    });
+
   server.post('/demo/reset', async (_request, reply) => {
     if (!options.resetEnabled) {
       return reply.status(404).send({ error: 'NOT_FOUND', message: 'Route not found' });

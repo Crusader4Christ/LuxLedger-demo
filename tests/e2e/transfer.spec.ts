@@ -70,3 +70,35 @@ test('reset and transfer expose balances and balanced entries', async ({ page, r
     'https://github.com/Crusader4Christ/LuxLedger',
   );
 });
+
+
+test('holds, history and finance reconciliation complete the lifecycle', async ({ page, request }) => {
+  await request.post('/demo/reset');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Reserve transfer' }).click();
+  const holds = page.getByRole('region', { name: 'Transfer holds' });
+  await expect(holds.getByText('HELD', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('account-wallet:alice')).toContainText('Available: 75.00 USD');
+  await holds.getByRole('button', { name: 'Commit hold' }).click();
+  await expect(holds.getByText('APPLIED', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('account-wallet:alice')).toContainText('75.00 USD');
+  await page.getByRole('button', { name: 'Reserve transfer' }).click();
+  await holds.getByRole('button', { name: 'Void hold' }).click();
+  await expect(holds.getByText('VOIDED', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ledger history' })).toContainText('HOLD_VOIDED');
+  await page.getByLabel('Demo view').selectOption('finance');
+  await expect(page.getByRole('button', { name: 'Reserve transfer' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reset demo' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Matched: 1');
+  await page.getByLabel('Statement amount').fill('99.00');
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Mismatched: 1');
+  await page.getByLabel('Statement reference').fill('missing');
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Unmatched external: 1');
+  await page.getByLabel('Demo view').selectOption('operator');
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(holds).toContainText('No holds yet');
+  await expect(page.getByTestId('account-wallet:alice')).toContainText('Available: 100.00 USD');
+});

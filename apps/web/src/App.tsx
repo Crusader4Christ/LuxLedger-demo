@@ -6,6 +6,7 @@ import {
   type DemoRequest,
   type DemoState,
   requestToCurl,
+  request,
 } from './api';
 import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
@@ -45,6 +46,12 @@ const copyText = async (value: string): Promise<boolean> => {
 
 export function App() {
   const [state, setState] = useState<DemoState | null>(null);
+  const [view, setView] = useState<'operator' | 'finance'>('operator');
+  const [reconReference, setReconReference] = useState('demo-seed-funding-alice-v1');
+  const [reconAmount, setReconAmount] = useState('100.00');
+  const [recon, setRecon] = useState<{ id: string; matchedCount: number; mismatchedCount: number;
+    unmatchedExternalCount: number; unmatchedInternalCount: number;
+    results: { id: string; status: string; reason: string }[] } | null>(null);
   const [from, setFrom] = useState('wallet:alice');
   const [to, setTo] = useState('wallet:bob');
   const [amount, setAmount] = useState('25.00');
@@ -62,6 +69,7 @@ export function App() {
     setLastRequest(operation);
     try {
       setState(await action());
+      if (operation.path === '/demo/reset') setRecon(null);
     } catch (cause) {
       setError(cause instanceof DemoApiError ? cause.message : 'The demo is temporarily unavailable');
     } finally {
@@ -96,9 +104,12 @@ export function App() {
           <span className="mark">L</span> LuxLedger
         </a>
         <nav>
+          <label>View<select aria-label="Demo view" value={view} onChange={event => setView(event.target.value as 'operator' | 'finance')}>
+            <option value="operator">Operator</option><option value="finance">Finance</option>
+          </select></label>
           <a href={GITHUB_URL} rel="noreferrer" target="_blank">GitHub</a>
           <a href="/docs" rel="noreferrer" target="_blank">API docs</a>
-          {state?.reset_enabled && (
+          {view === 'operator' && state?.reset_enabled && (
             <button
               className="secondary"
               disabled={busy}
@@ -154,10 +165,11 @@ export function App() {
               <article className="account" data-testid={`account-${account.address}`} key={account.id}>
                 <div><span className="avatar">{account.address.at(-1)?.toUpperCase()}</span><strong>{account.address}</strong></div>
                 <b>{formatMoney(account.balance_minor, account.currency)}</b>
+                <small>Available: {formatMoney(account.available_minor, account.currency)}</small>
               </article>
             )) ?? <p className="muted">Load or reset the demo to begin.</p>}
           </div>
-          <div className="create-account">
+          {view === 'operator' && <div className="create-account">
             <input aria-label="New account address" value={newAddress} onChange={(event) => setNewAddress(event.target.value)} />
             <button
               className="secondary"
@@ -170,16 +182,22 @@ export function App() {
             >
               Add account
             </button>
-          </div>
+          </div>}
         </div>
 
-        <form className="panel transfer" onSubmit={submit}>
+        {view === 'operator' && <form className="panel transfer" onSubmit={submit}>
           <div className="panel-title"><h2>New transfer</h2><span>Double-entry</span></div>
           <label>From<select value={from} onChange={(event) => setFrom(event.target.value)}>{state?.accounts.map((a) => <option key={a.id}>{a.address}</option>)}</select></label>
           <label>To<select value={to} onChange={(event) => setTo(event.target.value)}>{state?.accounts.map((a) => <option key={a.id}>{a.address}</option>)}</select></label>
           <label>Amount<div className="amount"><span>$</span><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /></div></label>
           <button className="primary" disabled={busy || !state}>{busy ? 'Recording…' : 'Send transfer'}</button>
-        </form>
+          <button type="button" className="secondary" disabled={busy || !state} onClick={() => {
+            const minor = dollarsToMinor(amount);
+            if (minor === null || minor === '0') { setError('Enter a positive amount'); return; }
+            const operation: DemoRequest = { method: 'POST', path: '/demo/holds', body: { from, to, amount_minor: minor } };
+            void run(operation, () => request(operation));
+          }}>Reserve transfer</button>
+        </form>}
       </section>
 
       <section className="panel ledger">
@@ -207,6 +225,56 @@ export function App() {
           </p>
         </> : <p className="muted">The two ledger entries will appear here after a transfer.</p>}
       </section>
+
+      <section className="panel ledger" aria-label="Transfer holds">
+        <div className="panel-title"><h2>Holds</h2><span>Latest 100 reservations</span></div>
+        {state?.holds.length === 0 && <p>No holds yet. Reserve a transfer to begin.</p>}
+        {state?.holds.map(hold => <article className="hold-row" key={hold.id} data-testid={`hold-${hold.id}`}>
+          <code>{hold.reference}</code><strong>{hold.state}</strong>
+          <span>Remaining: {formatMoney(hold.remaining_amount_minor, state.currency)}</span>
+          {view === 'operator' && hold.state === 'HELD' && <div>
+            {(['commit', 'void'] as const).map(action => <button key={action} className="secondary" disabled={busy}
+              onClick={() => { const operation: DemoRequest = { method: 'POST', path: `/demo/holds/${hold.id}/${action}` };
+                void run(operation, () => request(operation)); }}>{action === 'commit' ? 'Commit hold' : 'Void hold'}</button>)}
+          </div>}
+        </article>)}
+      </section>
+
+      <section className="panel ledger" aria-label="Ledger history">
+        <div className="panel-title"><h2>History</h2><span>First 100 transactions / events per account</span></div>
+        {state?.transactions_limited || state?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for older records.</p> : null}
+        {state?.transactions.map(tx => <details key={tx.id}><summary>{tx.description ?? tx.reference} · {tx.created_at}</summary>
+          <code>{tx.reference}</code>{tx.entries.map((entry, index) => <p key={index}>{entry.account_address}: {entry.signed_amount_minor} minor</p>)}
+        </details>)}
+        <h3>Balance events</h3>
+        {state?.history.filter(event => event.address !== 'system:funding').map(event => <p key={event.id}>
+          {event.address} · {event.event} · {event.created_at} · posted {event.posted_minor} / reserved {event.reserved_minor} minor
+        </p>)}
+      </section>
+
+      {view === 'finance' && <section className="panel ledger" aria-label="Finance reconciliation">
+        <div className="panel-title"><h2>Reconciliation</h2><span>External statement vs ledger</span></div>
+        <p>Trial balance: debits {state && formatMoney(state.trial_balance.debits_minor, state.currency)} / credits {state && formatMoney(state.trial_balance.credits_minor, state.currency)}</p>
+        <p>Submit one external statement record. Matching uses reference, amount and currency; other ledger transactions are reported as unmatched internal records.</p>
+        <label>Statement reference<input aria-label="Statement reference" value={reconReference} onChange={event => setReconReference(event.target.value)} /></label>
+        <label>Statement amount<input aria-label="Statement amount" value={reconAmount} onChange={event => setReconAmount(event.target.value)} /></label>
+        <button className="primary" disabled={busy || !state} onClick={async () => {
+          const minor = dollarsToMinor(reconAmount);
+          if (minor === null || minor === '0') { setError('Enter a positive statement amount'); return; }
+          setBusy(true); setError(null); setRecon(null);
+          const operation: DemoRequest = { method: 'POST', path: '/demo/reconciliation', body: { reference: reconReference, amount_minor: minor } };
+          setLastRequest(operation); setCopyStatus('idle');
+          try {
+            const response = await fetch(operation.path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(operation.body) });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message ?? 'Reconciliation failed');
+            setRecon(result);
+          } catch (cause) { setError(cause instanceof Error ? cause.message : 'Reconciliation failed'); }
+          finally { setBusy(false); }
+        }}>Run reconciliation</button>
+        {recon && <div role="status"><p>Matched: {recon.matchedCount} · Mismatched: {recon.mismatchedCount} · Unmatched external: {recon.unmatchedExternalCount} · Unmatched internal: {recon.unmatchedInternalCount}</p>
+          <code>Run {recon.id}</code>{recon.results.map(result => <p key={result.id}>{result.status}: {result.reason}</p>)}</div>}
+      </section>}
 
       <section className="panel request-preview" aria-labelledby="request-preview-title">
         <div className="panel-title">

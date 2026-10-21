@@ -1,6 +1,6 @@
 # LuxLedger Demo
 
-Small reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a minimal React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.4.0](openapi/openapi.yaml).
+Reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.4.0](openapi/openapi.yaml).
 
 The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
@@ -122,6 +122,37 @@ For API and web together after the database has been migrated:
 npm run dev:local
 ```
 
+## Lifecycle and finance views (LL-62)
+
+The **Operator** view preserves the transfer flow and adds **Reserve transfer** using the same
+From, To and Amount fields. Reservations reduce Alice's available balance without changing
+posted balances. **Commit hold** posts the reserved transfer; **Void hold** releases it.
+The history panel shows transactions and balance events, including hold creation, commit and void.
+**Reset demo** restores Alice USD 100.00 / Bob USD 0.00 and clears holds and reconciliation data.
+
+Switch **View → Finance** to inspect the trial balance and reconcile a statement record.
+The default reference `demo-seed-funding-alice-v1` and amount `100.00` match the opening funding.
+Change the amount to `99.00` to demonstrate a mismatch; use an unknown reference for an unmatched
+external record. Each click persists a separate reconciliation upload/run. Other ledger transactions
+appear as unmatched internal records because this example uploads one statement record at a time.
+
+These are presentation modes for a shared demo, not authenticated user roles. The hosted deployment's
+access control protects all `/demo/*` routes; the mode selector grants no permissions. Finance hides
+wallet mutations and reset, but can run reconciliation. Canonical `/v1/*` authentication and key
+revocation are unchanged, and credentials remain server-side.
+
+All writes use public application services from the exact released `@luxledger/*` **0.4.0** packages.
+The one demo-only hold-list read uses the pinned PostgreSQL schema, filters by tenant and ledger,
+and returns the latest 100 holds. No hold invariant or mutation is implemented with SQL.
+Transaction/history reads show the first 100 records (history per account); truncation is labelled.
+The state response combines separate reads and is not an atomic snapshot during concurrent activity.
+Use the canonical paginated HTTP APIs for full histories and integration workflows.
+
+Product routes added by this demo are `POST /demo/holds`, `POST /demo/holds/:id/commit`,
+`POST /demo/holds/:id/void`, and `POST /demo/reconciliation` (reference plus positive
+`amount_minor`). The canonical OpenAPI file remains byte-identical to `@luxledger/http`;
+it describes `/v1/*`, while these product routes follow the existing `/demo/*` composition.
+
 ## Automated verification
 
 Install the Playwright browser once:
@@ -136,7 +167,7 @@ Then run the complete verification pipeline:
 npm test
 ```
 
-It first verifies that `openapi/openapi.yaml` is byte-for-byte identical to the contract shipped by the installed `@luxledger/http` package, then runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies `reset → transfer → balances/entries` through the API, and repeats the flow through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
+It first verifies that `openapi/openapi.yaml` is byte-for-byte identical to the contract shipped by the installed `@luxledger/http` package, then runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies transfer, hold/commit/void, available balances, history, reconciliation match/mismatch/unmatched outcomes and reset through the API, and repeats the lifecycle and view switching through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
 
 Individual commands are `npm run verify:openapi`, `npm run test:integration`, and `npm run test:e2e`.
 

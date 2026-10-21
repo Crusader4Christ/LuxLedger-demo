@@ -44,7 +44,31 @@ export class DemoService {
     const addresses = new Map(accounts.map((account) => [account.id, account.name]));
     const transactions = await this.services.transactions.list({ tenantId, ledgerId, limit: 100 });
 
+    const now = new Date();
+    const balances = await Promise.all(accounts.map(async (account) => ({
+      id: account.id,
+      balance: await this.services.balances.getAt({ tenantId, accountId: account.id, at: now }),
+      history: await this.services.balances.listHistory({ tenantId, accountId: account.id,
+        from: new Date(0), to: now, limit: 100 }),
+    })));
+    // The released service has no hold-list operation. This bounded, tenant/ledger-scoped
+    // read is presentation only; all lifecycle mutations use the public hold service.
+    const holds = await this.db.sql`select id, reference, state,
+      remaining_amount_minor::text as remaining_amount_minor
+      from holds where tenant_id = ${tenantId} and ledger_id = ${ledgerId}
+      order by created_at desc, id desc limit 100`;
+    const trial = await this.services.balances.getTrialBalance({ tenantId, ledgerId });
     return {
+      holds,
+      history: balances.flatMap(({ id, history }) => history.data.map(event => ({
+        id: event.id, address: addresses.get(id), event: event.eventType,
+        posted_minor: event.postedMinor.toString(), reserved_minor: event.reservedDeltaMinor.toString(),
+        created_at: event.createdAt.toISOString(),
+      }))),
+      trial_balance: { debits_minor: trial.totalDebitsMinor.toString(),
+        credits_minor: trial.totalCreditsMinor.toString() },
+      history_limited: balances.some(item => item.history.nextCursor !== null),
+      transactions_limited: transactions.nextCursor !== null,
       currency: CURRENCY,
       ledger_id: ledgerId,
       reset_enabled: this.config.resetEnabled,
@@ -57,6 +81,7 @@ export class DemoService {
             account.side === AccountSide.CREDIT ? -account.balanceMinor : account.balanceMinor
           ).toString(),
           currency: account.currency,
+          available_minor: balances.find(item => item.id === account.id)!.balance.availableMinor.toString(),
         }))
         .sort((left, right) => left.address.localeCompare(right.address)),
       transactions: transactions.data.map((transaction) => ({
@@ -132,6 +157,45 @@ export class DemoService {
       ],
     });
     return this.getState();
+  }
+
+  async createHold(from: string, to: string, amountMinor: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const accounts = await this.accounts(tenantId, ledgerId);
+    const source = findAccount(accounts, normalizeAddress(from));
+    const destination = findAccount(accounts, normalizeAddress(to));
+    if (source.id === destination.id) throw new DemoInputError('Source and destination accounts must be different');
+    const amount = parseAmount(amountMinor);
+    await this.services.holds.create({ tenantId, ledgerId, reference: `demo-hold-${randomUUID()}`,
+      currency: CURRENCY, description: `${source.name} to ${destination.name}`,
+      entries: [entry(source.id, amount), entry(destination.id, -amount)] });
+    return this.getState();
+  }
+
+  async resolveHold(holdId: string, action: 'commit' | 'void') {
+    const { tenantId, ledgerId } = await this.context();
+    const rows = await this.db.sql`select id from holds where id = ${holdId}
+      and tenant_id = ${tenantId} and ledger_id = ${ledgerId}`;
+    if (rows.length === 0) throw new DemoInputError('Unknown demo hold');
+    if (action === 'commit') {
+      await this.services.holds.commit({ tenantId, holdId, reference: `demo-commit-${holdId}` });
+    } else {
+      await this.services.holds.void({ tenantId, holdId });
+    }
+    return this.getState();
+  }
+
+  async reconcile(reference: string, amountMinor: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const upload = await this.services.reconciliation.ingest({ tenantId, source: 'demo-statement',
+      records: [{ externalId: randomUUID(), reference, amountMinor: parseAmount(amountMinor),
+        currency: CURRENCY, occurredAt: new Date() }] });
+    let rule = (await this.services.reconciliation.listRules(tenantId)).find(rule => rule.name === 'Demo statement match');
+    rule ??= await this.services.reconciliation.createRule({ tenantId, name: 'Demo statement match',
+      criteria: [{ field: 'reference', operator: 'equals' }, { field: 'amount', operator: 'equals' },
+        { field: 'currency', operator: 'equals' }] });
+    return this.services.reconciliation.run({ tenantId, ledgerId, uploadId: upload.id,
+      matchingRuleIds: [rule.id], strategy: 'one_to_one' });
   }
 
   async reset() {
