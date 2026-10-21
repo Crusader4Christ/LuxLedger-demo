@@ -103,7 +103,7 @@ try {
     headers: body === undefined ? undefined : { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const held = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '1000' });
   assert.equal(held.accounts[0].balance_minor, '7500');
-  assert.equal(held.accounts[0].available_minor, '6500');
+  assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '6500');
   assert.equal(held.holds[0].state, 'HELD');
   const holdId = held.holds[0].id;
   const rejected = await fetch(`${apiUrl}/demo/transfers`, { method: 'POST',
@@ -119,10 +119,11 @@ try {
   const heldAgain = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '500' });
   const voided = await post(`/demo/holds/${heldAgain.holds[0].id}/void`);
   assert.equal(voided.holds[0].state, 'VOIDED');
-  assert.equal(voided.accounts[0].available_minor, '6500');
+  const details = await json('/demo/accounts/wallet:alice/details');
+  assert.equal(details.available_minor, '6500');
   assert.equal(voided.accounts[0].balance_minor, '6500');
   for (const event of ['HOLD_CREATED', 'HOLD_COMMITTED', 'HOLD_VOIDED']) {
-    assert.ok(voided.history.some(item => item.event === event));
+    assert.ok(details.history.some(item => item.event === event));
   }
   assert.equal(voided.trial_balance.debits_minor, voided.trial_balance.credits_minor);
   const matched = await post('/demo/reconciliation', { reference: transfer.reference, amount_minor: '2500' });
@@ -142,7 +143,7 @@ try {
     assert.equal(resetState.accounts[0].balance_minor, '10000');
     assert.equal(resetState.accounts[1].balance_minor, '0');
     assert.equal(resetState.holds.length, 0);
-    assert.equal(resetState.accounts[0].available_minor, '10000');
+    assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '10000');
   }
   console.log('Demo API integration flow passed');
 } finally {

@@ -127,7 +127,7 @@ npm run dev:local
 The **Operator** view preserves the transfer flow and adds **Reserve transfer** using the same
 From, To and Amount fields. Reservations reduce Alice's available balance without changing
 posted balances. **Commit hold** posts the reserved transfer; **Void hold** releases it.
-The history panel shows transactions and balance events, including hold creation, commit and void.
+The history panel shows transactions. Select one account to load its available balance and balance events, including hold creation, commit and void.
 **Reset demo** restores Alice USD 100.00 / Bob USD 0.00 and clears holds and reconciliation data.
 
 Switch **View → Finance** to inspect the trial balance and reconcile a statement record.
@@ -144,7 +144,7 @@ revocation are unchanged, and credentials remain server-side.
 All writes use public application services from the exact released `@luxledger/*` **0.4.0** packages.
 The one demo-only hold-list read uses the pinned PostgreSQL schema, filters by tenant and ledger,
 and returns the latest 100 holds. No hold invariant or mutation is implemented with SQL.
-Transaction/history reads show the first 100 records (history per account); truncation is labelled.
+Transaction/history reads show the first 100 records; truncation is labelled. Account details are loaded on demand through `GET /demo/accounts/:address/details`. The state endpoint never fans out balance/history reads across accounts.
 The state response combines separate reads and is not an atomic snapshot during concurrent activity.
 Use the canonical paginated HTTP APIs for full histories and integration workflows.
 

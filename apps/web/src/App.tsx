@@ -7,6 +7,8 @@ import {
   type DemoState,
   requestToCurl,
   request,
+  loadAccountDetails,
+  type DemoAccountDetails,
 } from './api';
 import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
@@ -46,6 +48,9 @@ const copyText = async (value: string): Promise<boolean> => {
 
 export function App() {
   const [state, setState] = useState<DemoState | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState('wallet:alice');
+  const [accountDetails, setAccountDetails] = useState<DemoAccountDetails | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
   const [view, setView] = useState<'operator' | 'finance'>('operator');
   const [reconReference, setReconReference] = useState('demo-seed-funding-alice-v1');
   const [reconAmount, setReconAmount] = useState('100.00');
@@ -80,6 +85,23 @@ export function App() {
   useEffect(() => {
     void run(demoRequests.state(), demoApi.state);
   }, []);
+
+  useEffect(() => {
+    setAccountDetails(null);
+    setDetailsError(null);
+    if (!state) return;
+    if (!state.accounts.some(account => account.address === selectedAddress)) {
+      if (state.accounts[0]) setSelectedAddress(state.accounts[0].address);
+      return;
+    }
+    const controller = new AbortController();
+    void loadAccountDetails(selectedAddress, controller.signal).then(details => {
+      if (!controller.signal.aborted) setAccountDetails(details);
+    }).catch(cause => {
+      if (!controller.signal.aborted) setDetailsError(cause instanceof Error ? cause.message : 'Account details unavailable');
+    });
+    return () => controller.abort();
+  }, [state, selectedAddress]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -165,7 +187,6 @@ export function App() {
               <article className="account" data-testid={`account-${account.address}`} key={account.id}>
                 <div><span className="avatar">{account.address.at(-1)?.toUpperCase()}</span><strong>{account.address}</strong></div>
                 <b>{formatMoney(account.balance_minor, account.currency)}</b>
-                <small>Available: {formatMoney(account.available_minor, account.currency)}</small>
               </article>
             )) ?? <p className="muted">Load or reset the demo to begin.</p>}
           </div>
@@ -241,14 +262,20 @@ export function App() {
       </section>
 
       <section className="panel ledger" aria-label="Ledger history">
-        <div className="panel-title"><h2>History</h2><span>First 100 transactions / events per account</span></div>
-        {state?.transactions_limited || state?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for older records.</p> : null}
+        <div className="panel-title"><h2>History</h2><span>First 100 transactions / selected account events</span></div>
+        {state?.transactions_limited || accountDetails?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for older records.</p> : null}
         {state?.transactions.map(tx => <details key={tx.id}><summary>{tx.description ?? tx.reference} · {tx.created_at}</summary>
           <code>{tx.reference}</code>{tx.entries.map((entry, index) => <p key={index}>{entry.account_address}: {entry.signed_amount_minor} minor</p>)}
         </details>)}
         <h3>Balance events</h3>
-        {state?.history.filter(event => event.address !== 'system:funding').map(event => <p key={event.id}>
-          {event.address} · {event.event} · {event.created_at} · posted {event.posted_minor} / reserved {event.reserved_minor} minor
+        <label>Account<select aria-label="History account" value={selectedAddress} onChange={event => setSelectedAddress(event.target.value)}>
+          {state?.accounts.map(account => <option key={account.id}>{account.address}</option>)}
+        </select></label>
+        {detailsError && <p role="alert">{detailsError}</p>}
+        {!accountDetails && !detailsError && <p>Loading account details…</p>}
+        {accountDetails && <p data-testid="available-balance">Available: {formatMoney(accountDetails.available_minor, accountDetails.currency)}</p>}
+        {accountDetails?.history.map(event => <p key={event.id}>
+          {accountDetails.address} · {event.event} · {event.created_at} · posted {event.posted_minor} / reserved {event.reserved_minor} minor
         </p>)}
       </section>
 

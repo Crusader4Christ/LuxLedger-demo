@@ -44,13 +44,6 @@ export class DemoService {
     const addresses = new Map(accounts.map((account) => [account.id, account.name]));
     const transactions = await this.services.transactions.list({ tenantId, ledgerId, limit: 100 });
 
-    const now = new Date();
-    const balances = await Promise.all(accounts.map(async (account) => ({
-      id: account.id,
-      balance: await this.services.balances.getAt({ tenantId, accountId: account.id, at: now }),
-      history: await this.services.balances.listHistory({ tenantId, accountId: account.id,
-        from: new Date(0), to: now, limit: 100 }),
-    })));
     // The released service has no hold-list operation. This bounded, tenant/ledger-scoped
     // read is presentation only; all lifecycle mutations use the public hold service.
     const holds = await this.db.sql`select id, reference, state,
@@ -60,14 +53,8 @@ export class DemoService {
     const trial = await this.services.balances.getTrialBalance({ tenantId, ledgerId });
     return {
       holds,
-      history: balances.flatMap(({ id, history }) => history.data.map(event => ({
-        id: event.id, address: addresses.get(id), event: event.eventType,
-        posted_minor: event.postedMinor.toString(), reserved_minor: event.reservedDeltaMinor.toString(),
-        created_at: event.createdAt.toISOString(),
-      }))),
       trial_balance: { debits_minor: trial.totalDebitsMinor.toString(),
         credits_minor: trial.totalCreditsMinor.toString() },
-      history_limited: balances.some(item => item.history.nextCursor !== null),
       transactions_limited: transactions.nextCursor !== null,
       currency: CURRENCY,
       ledger_id: ledgerId,
@@ -81,7 +68,6 @@ export class DemoService {
             account.side === AccountSide.CREDIT ? -account.balanceMinor : account.balanceMinor
           ).toString(),
           currency: account.currency,
-          available_minor: balances.find(item => item.id === account.id)!.balance.availableMinor.toString(),
         }))
         .sort((left, right) => left.address.localeCompare(right.address)),
       transactions: transactions.data.map((transaction) => ({
@@ -93,6 +79,28 @@ export class DemoService {
           account_address: addresses.get(String(entry.accountId)) ?? String(entry.accountId),
           signed_amount_minor: entry.money.amountMinor.toString(),
         })),
+      })),
+    };
+  }
+
+  async getAccountDetails(address: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const account = findAccount(await this.accounts(tenantId, ledgerId), normalizeAddress(address));
+    const at = new Date();
+    const balance = await this.services.balances.getAt({ tenantId, accountId: account.id, at });
+    const history = await this.services.balances.listHistory({
+      tenantId, accountId: account.id, from: new Date(0), to: at, limit: 100,
+    });
+    return {
+      address: account.name,
+      currency: account.currency,
+      available_minor: balance.availableMinor.toString(),
+      history_limited: history.nextCursor !== null,
+      history: history.data.map(event => ({
+        id: event.id, event: event.eventType,
+        posted_minor: event.postedMinor.toString(),
+        reserved_minor: event.reservedDeltaMinor.toString(),
+        created_at: event.createdAt.toISOString(),
       })),
     };
   }

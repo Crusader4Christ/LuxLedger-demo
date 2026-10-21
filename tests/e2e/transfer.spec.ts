@@ -78,7 +78,7 @@ test('holds, history and finance reconciliation complete the lifecycle', async (
   await page.getByRole('button', { name: 'Reserve transfer' }).click();
   const holds = page.getByRole('region', { name: 'Transfer holds' });
   await expect(holds.getByText('HELD', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('account-wallet:alice')).toContainText('Available: 75.00 USD');
+  await expect(page.getByTestId('available-balance')).toContainText('Available: 75.00 USD');
   await holds.getByRole('button', { name: 'Commit hold' }).click();
   await expect(holds.getByText('APPLIED', { exact: true })).toBeVisible();
   await expect(page.getByTestId('account-wallet:alice')).toContainText('75.00 USD');
@@ -100,5 +100,26 @@ test('holds, history and finance reconciliation complete the lifecycle', async (
   await page.getByLabel('Demo view').selectOption('operator');
   await page.getByRole('button', { name: 'Reset demo' }).click();
   await expect(holds).toContainText('No holds yet');
-  await expect(page.getByTestId('account-wallet:alice')).toContainText('Available: 100.00 USD');
+  await expect(page.getByTestId('available-balance')).toContainText('Available: 100.00 USD');
+});
+
+
+test('loads details only for the selected account and recovers selection after reset', async ({ page, request }) => {
+  await request.post('/demo/reset');
+  const detailsRequests: string[] = [];
+  page.on('request', req => {
+    if (req.url().endsWith('/details')) detailsRequests.push(decodeURIComponent(new URL(req.url()).pathname));
+  });
+  await page.goto('/');
+  await expect(page.getByTestId('available-balance')).toContainText('100.00 USD');
+  expect(detailsRequests.every(path => path === '/demo/accounts/wallet:alice/details')).toBe(true);
+  await page.getByLabel('History account').selectOption('wallet:bob');
+  await expect(page.getByTestId('available-balance')).toContainText('0.00 USD');
+  expect(detailsRequests.at(-1)).toBe('/demo/accounts/wallet:bob/details');
+  await page.getByRole('button', { name: 'Add account', exact: true }).click();
+  await page.getByLabel('History account').selectOption('wallet:carol');
+  await expect(page.getByTestId('available-balance')).toContainText('0.00 USD');
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(page.getByLabel('History account')).toHaveValue('wallet:alice');
+  await expect(page.getByTestId('available-balance')).toContainText('100.00 USD');
 });

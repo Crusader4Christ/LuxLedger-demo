@@ -21,6 +21,14 @@ export const registerDemoRoutes = (
     }
   });
 
+  server.get<{ Params: { address: string } }>('/demo/accounts/:address/details',
+    { schema: { params: { type: 'object', required: ['address'], properties: {
+      address: { type: 'string', minLength: 1, maxLength: 80 },
+    } } } }, async (request, reply) => {
+      try { return await demo.getAccountDetails(request.params.address); }
+      catch (error) { return handleError(reply, error); }
+    });
+
   server.post<{ Body: { address: string } }>(
     '/demo/accounts',
     {

@@ -2,7 +2,6 @@ export interface DemoAccount {
   id: string;
   address: string;
   balance_minor: string;
-  available_minor: string;
   currency: string;
 }
 
@@ -26,11 +25,24 @@ export interface DemoState {
   reset_enabled: boolean;
   transactions: DemoTransaction[];
   holds: { id: string; reference: string; state: string; remaining_amount_minor: string }[];
-  history: { id: string; address: string; event: string; posted_minor: string; reserved_minor: string; created_at: string }[];
   trial_balance: { debits_minor: string; credits_minor: string };
-  history_limited: boolean;
   transactions_limited: boolean;
 }
+
+export interface DemoAccountDetails {
+  address: string;
+  currency: string;
+  available_minor: string;
+  history_limited: boolean;
+  history: { id: string; event: string; posted_minor: string; reserved_minor: string; created_at: string }[];
+}
+
+export const loadAccountDetails = async (address: string, signal: AbortSignal): Promise<DemoAccountDetails> => {
+  const response = await fetch(`/demo/accounts/${encodeURIComponent(address)}/details`, { signal });
+  const body = await response.json();
+  if (!response.ok) throw new DemoApiError(body.message ?? 'Account details unavailable');
+  return body;
+};
 
 export class DemoApiError extends Error {}
 
