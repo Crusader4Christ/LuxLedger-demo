@@ -122,7 +122,7 @@ For API and web together after the database has been migrated:
 npm run dev:local
 ```
 
-## Lifecycle and finance views (LL-62)
+## Lifecycle and finance views
 
 The **Operator** view preserves the transfer flow and adds **Reserve transfer** using the same
 From, To and Amount fields. Reservations reduce Alice's available balance without changing
