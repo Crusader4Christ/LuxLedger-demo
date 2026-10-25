@@ -9,6 +9,7 @@ import {
   request,
   loadAccountDetails,
   type DemoAccountDetails,
+  type DemoReconciliation,
 } from './api';
 import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
@@ -54,9 +55,7 @@ export function App() {
   const [view, setView] = useState<'operator' | 'finance'>('operator');
   const [reconReference, setReconReference] = useState('demo-seed-funding-alice-v1');
   const [reconAmount, setReconAmount] = useState('100.00');
-  const [recon, setRecon] = useState<{ id: string; matchedCount: number; mismatchedCount: number;
-    unmatchedExternalCount: number; unmatchedInternalCount: number;
-    results: { id: string; status: string; reason: string }[] } | null>(null);
+  const [recon, setRecon] = useState<DemoReconciliation | null>(null);
   const [from, setFrom] = useState('wallet:alice');
   const [to, setTo] = useState('wallet:bob');
   const [amount, setAmount] = useState('25.00');
@@ -67,13 +66,17 @@ export function App() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const latest = useMemo(() => state?.transactions.at(-1) ?? null, [state]);
 
-  const run = async (operation: DemoRequest, action: () => Promise<DemoState>) => {
+  const run = async <T,>(
+    operation: DemoRequest,
+    action: () => Promise<T>,
+    onSuccess: (result: T) => void,
+  ) => {
     setBusy(true);
     setError(null);
     setCopyStatus('idle');
     setLastRequest(operation);
     try {
-      setState(await action());
+      onSuccess(await action());
       if (operation.path === '/demo/reset') setRecon(null);
     } catch (cause) {
       setError(cause instanceof DemoApiError ? cause.message : 'The demo is temporarily unavailable');
@@ -83,7 +86,7 @@ export function App() {
   };
 
   useEffect(() => {
-    void run(demoRequests.state(), demoApi.state);
+    void run(demoRequests.state(), demoApi.state, setState);
   }, []);
 
   useEffect(() => {
@@ -111,7 +114,7 @@ export function App() {
       return;
     }
     const operation = demoRequests.transfer(from, to, minor);
-    void run(operation, () => demoApi.transfer(from, to, minor));
+    void run(operation, () => demoApi.transfer(from, to, minor), setState);
   };
 
   const curl = requestToCurl(lastRequest, window.location.origin);
@@ -135,7 +138,7 @@ export function App() {
             <button
               className="secondary"
               disabled={busy}
-              onClick={() => void run(demoRequests.reset(), demoApi.reset)}
+              onClick={() => void run(demoRequests.reset(), demoApi.reset, setState)}
             >
               Reset demo
             </button>
@@ -196,8 +199,10 @@ export function App() {
               className="secondary"
               disabled={busy}
               onClick={() =>
-                void run(demoRequests.createAccount(newAddress), () =>
-                  demoApi.createAccount(newAddress),
+                void run(
+                  demoRequests.createAccount(newAddress),
+                  () => demoApi.createAccount(newAddress),
+                  setState,
                 )
               }
             >
@@ -216,7 +221,7 @@ export function App() {
             const minor = dollarsToMinor(amount);
             if (minor === null || minor === '0') { setError('Enter a positive amount'); return; }
             const operation: DemoRequest = { method: 'POST', path: '/demo/holds', body: { from, to, amount_minor: minor } };
-            void run(operation, () => request(operation));
+            void run(operation, () => request(operation), setState);
           }}>Reserve transfer</button>
         </form>}
       </section>
@@ -248,22 +253,29 @@ export function App() {
       </section>
 
       <section className="panel ledger" aria-label="Transfer holds">
-        <div className="panel-title"><h2>Holds</h2><span>Latest 100 reservations</span></div>
+        <div className="panel-title"><h2>Holds</h2><span>All active / latest 100 completed</span></div>
         {state?.holds.length === 0 && <p>No holds yet. Reserve a transfer to begin.</p>}
-        {state?.holds.map(hold => <article className="hold-row" key={hold.id} data-testid={`hold-${hold.id}`}>
-          <code>{hold.reference}</code><strong>{hold.state}</strong>
-          <span>Remaining: {formatMoney(hold.remaining_amount_minor, state.currency)}</span>
-          {view === 'operator' && hold.state === 'HELD' && <div>
-            {(['commit', 'void'] as const).map(action => <button key={action} className="secondary" disabled={busy}
-              onClick={() => { const operation: DemoRequest = { method: 'POST', path: `/demo/holds/${hold.id}/${action}` };
-                void run(operation, () => request(operation)); }}>{action === 'commit' ? 'Commit hold' : 'Void hold'}</button>)}
-          </div>}
-        </article>)}
+        {(['active', 'completed'] as const).map(group => <div key={group}>
+          <h3>{group === 'active' ? 'Active holds' : 'Latest 100 completed holds'}</h3>
+          {state?.holds.filter(hold => (hold.state === 'HELD') === (group === 'active')).map(hold => (
+            <article className="hold-row" key={hold.id} data-testid={`hold-${hold.id}`}>
+              <div><strong>{hold.description ?? hold.reference}</strong><code>{hold.reference}</code></div>
+              <strong>{hold.state}</strong>
+              <span>Amount: {formatMoney(hold.original_amount_minor, state.currency)}</span>
+              <span>Remaining: {formatMoney(hold.remaining_amount_minor, state.currency)}</span>
+              {view === 'operator' && hold.state === 'HELD' && <div>
+                {(['commit', 'void'] as const).map(action => <button key={action} className="secondary" disabled={busy}
+                  onClick={() => { const operation: DemoRequest = { method: 'POST', path: `/demo/holds/${hold.id}/${action}` };
+                    void run(operation, () => request(operation), setState); }}>{action === 'commit' ? 'Commit hold' : 'Void hold'}</button>)}
+              </div>}
+            </article>
+          ))}
+        </div>)}
       </section>
 
       <section className="panel ledger" aria-label="Ledger history">
         <div className="panel-title"><h2>History</h2><span>First 100 transactions / selected account events</span></div>
-        {state?.transactions_limited || accountDetails?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for older records.</p> : null}
+        {state?.transactions_limited || accountDetails?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for newer records.</p> : null}
         {state?.transactions.map(tx => <details key={tx.id}><summary>{tx.description ?? tx.reference} · {tx.created_at}</summary>
           <code>{tx.reference}</code>{tx.entries.map((entry, index) => <p key={index}>{entry.account_address}: {entry.signed_amount_minor} minor</p>)}
         </details>)}
@@ -285,19 +297,11 @@ export function App() {
         <p>Submit one external statement record. Matching uses reference, amount and currency; other ledger transactions are reported as unmatched internal records.</p>
         <label>Statement reference<input aria-label="Statement reference" value={reconReference} onChange={event => setReconReference(event.target.value)} /></label>
         <label>Statement amount<input aria-label="Statement amount" value={reconAmount} onChange={event => setReconAmount(event.target.value)} /></label>
-        <button className="primary" disabled={busy || !state} onClick={async () => {
+        <button className="primary" disabled={busy || !state} onClick={() => {
           const minor = dollarsToMinor(reconAmount);
           if (minor === null || minor === '0') { setError('Enter a positive statement amount'); return; }
-          setBusy(true); setError(null); setRecon(null);
-          const operation: DemoRequest = { method: 'POST', path: '/demo/reconciliation', body: { reference: reconReference, amount_minor: minor } };
-          setLastRequest(operation); setCopyStatus('idle');
-          try {
-            const response = await fetch(operation.path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(operation.body) });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message ?? 'Reconciliation failed');
-            setRecon(result);
-          } catch (cause) { setError(cause instanceof Error ? cause.message : 'Reconciliation failed'); }
-          finally { setBusy(false); }
+          setRecon(null);
+          void run(demoRequests.reconcile(reconReference, minor), () => demoApi.reconcile(reconReference, minor), setRecon);
         }}>Run reconciliation</button>
         {recon && <div role="status"><p>Matched: {recon.matchedCount} · Mismatched: {recon.mismatchedCount} · Unmatched external: {recon.unmatchedExternalCount} · Unmatched internal: {recon.unmatchedInternalCount}</p>
           <code>Run {recon.id}</code>{recon.results.map(result => <p key={result.id}>{result.status}: {result.reason}</p>)}</div>}

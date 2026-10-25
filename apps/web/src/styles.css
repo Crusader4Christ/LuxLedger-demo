@@ -89,7 +89,7 @@ footer > div:last-child { display: flex; gap: 16px; }
 @media (max-width: 520px) { header nav a:first-child { display: none; } .hero-actions { display: grid; } .proof-strip { grid-template-columns: 1fr; } .proof-strip div, .proof-strip div:first-child { padding: 16px 0; border-left: 0; border-top: 1px solid #dce2e8; } .proof-strip div:first-child { border-top: 0; } .capability-grid { grid-template-columns: 1fr; } .capability-grid article { min-height: 0; } .create-account { grid-template-columns: 1fr; } .panel { padding: 20px; } }
 
 .hold-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 0; border-top: 1px solid #e7ebef; }
-.hold-row code { flex: 1 1 260px; }
+.hold-row > div:first-child { display: flex; flex: 1 1 260px; flex-direction: column; overflow-wrap: anywhere; }
 .hold-row > div { display: flex; gap: 8px; }
 .account small { display: block; color: #667386; margin-top: 8px; }
 .ledger details { padding: 12px 0; border-top: 1px solid #e7ebef; overflow-wrap: anywhere; }

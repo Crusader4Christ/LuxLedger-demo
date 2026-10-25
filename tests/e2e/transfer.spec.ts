@@ -78,6 +78,8 @@ test('holds, history and finance reconciliation complete the lifecycle', async (
   await page.getByRole('button', { name: 'Reserve transfer' }).click();
   const holds = page.getByRole('region', { name: 'Transfer holds' });
   await expect(holds.getByText('HELD', { exact: true })).toBeVisible();
+  await expect(holds.getByText('wallet:alice to wallet:bob', { exact: true })).toBeVisible();
+  await expect(holds.getByText('Amount: 25.00 USD', { exact: true })).toBeVisible();
   await expect(page.getByTestId('available-balance')).toContainText('Available: 75.00 USD');
   await holds.getByRole('button', { name: 'Commit hold' }).click();
   await expect(holds.getByText('APPLIED', { exact: true })).toBeVisible();

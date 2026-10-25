@@ -29,14 +29,14 @@ A JWT is backed by its API-key record. Every authenticated request rechecks that
 
 ## Pagination
 
-List transactions, accounts, entries, and balance history with cursor pagination:
+List ledgers, assets, API keys, transactions, accounts, entries, balance history, reconciliation rules, and reconciliation results with cursor pagination:
 
 ```http
 GET /v1/transactions?ledger_id=<uuid>&limit=50
 GET /v1/transactions?ledger_id=<uuid>&limit=50&cursor=<opaque-next_cursor>
 ```
 
-`limit` defaults to 50 and accepts 1–200. Treat `next_cursor` as opaque: pass it unchanged and do not decode, persist business meaning from, or construct it. `next_cursor: null` means the page is final. A malformed/stale cursor produces `400`. Ledger listing and reconciliation-rule listing are currently unpaginated.
+`limit` defaults to 50 and accepts 1–200. Treat `next_cursor` as opaque: pass it unchanged and do not decode, persist business meaning from, or construct it. `next_cursor: null` means the page is final. A malformed/stale cursor produces `400`. All these lists return `{ "data": [...], "next_cursor": "..." }`. Continue with `cursor=next_cursor` until it is `null`. Version 0.5.0 also supports typed `where` filters; see the OpenAPI schema for the fields allowed by each endpoint.
 
 ## Error envelope
 

@@ -44,12 +44,21 @@ export class DemoService {
     const addresses = new Map(accounts.map((account) => [account.id, account.name]));
     const transactions = await this.services.transactions.list({ tenantId, ledgerId, limit: 100 });
 
-    // The released service has no hold-list operation. This bounded, tenant/ledger-scoped
+    // The released service has no hold-list operation. This tenant/ledger-scoped
     // read is presentation only; all lifecycle mutations use the public hold service.
-    const holds = await this.db.sql`select id, reference, state,
+    // Active holds must remain actionable even after the completed history fills up.
+    const holds = await this.db.sql`select id, reference, description, state,
+      original_amount_minor::text as original_amount_minor,
       remaining_amount_minor::text as remaining_amount_minor
-      from holds where tenant_id = ${tenantId} and ledger_id = ${ledgerId}
-      order by created_at desc, id desc limit 100`;
+      from (
+        select * from holds
+        where tenant_id = ${tenantId} and ledger_id = ${ledgerId} and state = 'HELD'
+        union all
+        (select * from holds
+        where tenant_id = ${tenantId} and ledger_id = ${ledgerId} and state <> 'HELD'
+        order by created_at desc, id desc limit 100)
+      ) as demo_holds
+      order by created_at desc, id desc`;
     const trial = await this.services.balances.getTrialBalance({ tenantId, ledgerId });
     return {
       holds,

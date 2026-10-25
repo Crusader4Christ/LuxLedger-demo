@@ -24,9 +24,19 @@ export interface DemoState {
   ledger_id: string;
   reset_enabled: boolean;
   transactions: DemoTransaction[];
-  holds: { id: string; reference: string; state: string; remaining_amount_minor: string }[];
+  holds: { id: string; reference: string; description: string | null; state: string;
+    original_amount_minor: string; remaining_amount_minor: string }[];
   trial_balance: { debits_minor: string; credits_minor: string };
   transactions_limited: boolean;
+}
+
+export interface DemoReconciliation {
+  id: string;
+  matchedCount: number;
+  mismatchedCount: number;
+  unmatchedExternalCount: number;
+  unmatchedInternalCount: number;
+  results: { id: string; status: string; reason: string }[];
 }
 
 export interface DemoAccountDetails {
@@ -60,6 +70,11 @@ export const demoRequests = {
     path: '/demo/accounts',
     body: { address },
   }),
+  reconcile: (reference: string, amountMinor: string): DemoRequest => ({
+    method: 'POST',
+    path: '/demo/reconciliation',
+    body: { reference, amount_minor: amountMinor },
+  }),
   transfer: (from: string, to: string, amountMinor: string): DemoRequest => ({
     method: 'POST',
     path: '/demo/transfers',
@@ -67,21 +82,23 @@ export const demoRequests = {
   }),
 };
 
-export const request = async (operation: DemoRequest): Promise<DemoState> => {
+export const request = async <T = DemoState>(operation: DemoRequest): Promise<T> => {
   const response = await fetch(operation.path, {
     method: operation.method,
     headers: operation.body === undefined ? undefined : { 'content-type': 'application/json' },
     body: operation.body === undefined ? undefined : JSON.stringify(operation.body),
   });
-  const body = (await response.json()) as DemoState | { message?: string };
+  const body = await response.json();
   if (!response.ok) {
     throw new DemoApiError('message' in body && body.message ? body.message : 'Demo request failed');
   }
-  return body as DemoState;
+  return body as T;
 };
 
 export const demoApi = {
   state: () => request(demoRequests.state()),
+  reconcile: (reference: string, amountMinor: string) =>
+    request<DemoReconciliation>(demoRequests.reconcile(reference, amountMinor)),
   reset: () => request(demoRequests.reset()),
   createAccount: (address: string) => request(demoRequests.createAccount(address)),
   transfer: (from: string, to: string, amountMinor: string) =>

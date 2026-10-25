@@ -143,7 +143,8 @@ revocation are unchanged, and credentials remain server-side.
 
 All writes use public application services from the exact released `@luxledger/*` **0.5.0** packages. Account lookups use the 0.5.0 typed `where.name.eq` filter, and account collections use cursor pagination.
 The one demo-only hold-list read uses the pinned PostgreSQL schema, filters by tenant and ledger,
-and returns the latest 100 holds. No hold invariant or mutation is implemented with SQL.
+and returns all active holds plus the latest 100 completed holds. The UI separates active and completed
+holds and shows each transfer direction and original amount. No hold invariant or mutation is implemented with SQL.
 Transaction/history reads show the first 100 records; truncation is labelled. Account details are loaded on demand through `GET /demo/accounts/:address/details`. The state endpoint never fans out balance/history reads across accounts.
 The state response combines separate reads and is not an atomic snapshot during concurrent activity.
 Use the canonical paginated HTTP APIs for full histories and integration workflows.

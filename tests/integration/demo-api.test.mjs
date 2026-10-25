@@ -105,6 +105,8 @@ try {
   assert.equal(held.accounts[0].balance_minor, '7500');
   assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '6500');
   assert.equal(held.holds[0].state, 'HELD');
+  assert.equal(held.holds[0].description, 'wallet:alice to wallet:bob');
+  assert.equal(held.holds[0].original_amount_minor, '1000');
   const holdId = held.holds[0].id;
   const rejected = await fetch(`${apiUrl}/demo/transfers`, { method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -114,6 +116,8 @@ try {
   assert.equal(committed.accounts[0].balance_minor, '6500');
   assert.equal(committed.accounts[1].balance_minor, '3500');
   assert.equal(committed.holds[0].state, 'APPLIED');
+  assert.equal(committed.holds[0].original_amount_minor, '1000');
+  assert.equal(committed.holds[0].remaining_amount_minor, '0');
   const replay = await post(`/demo/holds/${holdId}/commit`);
   assert.equal(replay.transactions.length, committed.transactions.length);
   const heldAgain = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '500' });
@@ -145,6 +149,21 @@ try {
     assert.equal(resetState.holds.length, 0);
     assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '10000');
   }
+  // Completed history must never hide a reservation that still locks funds.
+  const active = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '1000' });
+  const activeId = active.holds[0].id;
+  for (let index = 0; index < 100; index++) {
+    const newer = await post('/demo/holds', { from: 'wallet:alice', to: 'wallet:bob', amount_minor: '1' });
+    await post(`/demo/holds/${newer.holds[0].id}/void`);
+  }
+  const fullHistory = await json('/demo/state');
+  assert.equal(fullHistory.holds.length, 101);
+  assert.equal(fullHistory.holds.find(hold => hold.id === activeId)?.state, 'HELD');
+  assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '9000');
+  const released = await post(`/demo/holds/${activeId}/void`);
+  assert.equal(released.holds.length, 100);
+  assert.ok(released.holds.every(hold => hold.state === 'VOIDED'));
+  assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '10000');
   console.log('Demo API integration flow passed');
 } finally {
   api.kill('SIGTERM');
