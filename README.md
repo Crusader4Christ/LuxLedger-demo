@@ -1,6 +1,6 @@
 # LuxLedger Demo
 
-Reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.4.0](openapi/openapi.yaml).
+Reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.5.0](openapi/openapi.yaml).
 
 The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
 
@@ -141,7 +141,7 @@ access control protects all `/demo/*` routes; the mode selector grants no permis
 wallet mutations and reset, but can run reconciliation. Canonical `/v1/*` authentication and key
 revocation are unchanged, and credentials remain server-side.
 
-All writes use public application services from the exact released `@luxledger/*` **0.4.0** packages.
+All writes use public application services from the exact released `@luxledger/*` **0.5.0** packages. Account lookups use the 0.5.0 typed `where.name.eq` filter, and account collections use cursor pagination.
 The one demo-only hold-list read uses the pinned PostgreSQL schema, filters by tenant and ledger,
 and returns the latest 100 holds. No hold invariant or mutation is implemented with SQL.
 Transaction/history reads show the first 100 records; truncation is labelled. Account details are loaded on demand through `GET /demo/accounts/:address/details`. The state endpoint never fans out balance/history reads across accounts.
