@@ -70,3 +70,58 @@ test('reset and transfer expose balances and balanced entries', async ({ page, r
     'https://github.com/Crusader4Christ/LuxLedger',
   );
 });
+
+
+test('holds, history and finance reconciliation complete the lifecycle', async ({ page, request }) => {
+  await request.post('/demo/reset');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Reserve transfer' }).click();
+  const holds = page.getByRole('region', { name: 'Transfer holds' });
+  await expect(holds.getByText('HELD', { exact: true })).toBeVisible();
+  await expect(holds.getByText('wallet:alice to wallet:bob', { exact: true })).toBeVisible();
+  await expect(holds.getByText('Amount: 25.00 USD', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('available-balance')).toContainText('Available: 75.00 USD');
+  await holds.getByRole('button', { name: 'Commit hold' }).click();
+  await expect(holds.getByText('APPLIED', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('account-wallet:alice')).toContainText('75.00 USD');
+  await page.getByRole('button', { name: 'Reserve transfer' }).click();
+  await holds.getByRole('button', { name: 'Void hold' }).click();
+  await expect(holds.getByText('VOIDED', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ledger history' })).toContainText('HOLD_VOIDED');
+  await page.getByLabel('Demo view').selectOption('finance');
+  await expect(page.getByRole('button', { name: 'Reserve transfer' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reset demo' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Matched: 1');
+  await page.getByLabel('Statement amount').fill('99.00');
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Mismatched: 1');
+  await page.getByLabel('Statement reference').fill('missing');
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+  await expect(page.getByRole('status')).toContainText('Unmatched external: 1');
+  await page.getByLabel('Demo view').selectOption('operator');
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(holds).toContainText('No holds yet');
+  await expect(page.getByTestId('available-balance')).toContainText('Available: 100.00 USD');
+});
+
+
+test('loads details only for the selected account and recovers selection after reset', async ({ page, request }) => {
+  await request.post('/demo/reset');
+  const detailsRequests: string[] = [];
+  page.on('request', req => {
+    if (req.url().endsWith('/details')) detailsRequests.push(decodeURIComponent(new URL(req.url()).pathname));
+  });
+  await page.goto('/');
+  await expect(page.getByTestId('available-balance')).toContainText('100.00 USD');
+  expect(detailsRequests.every(path => path === '/demo/accounts/wallet:alice/details')).toBe(true);
+  await page.getByLabel('History account').selectOption('wallet:bob');
+  await expect(page.getByTestId('available-balance')).toContainText('0.00 USD');
+  expect(detailsRequests.at(-1)).toBe('/demo/accounts/wallet:bob/details');
+  await page.getByRole('button', { name: 'Add account', exact: true }).click();
+  await page.getByLabel('History account').selectOption('wallet:carol');
+  await expect(page.getByTestId('available-balance')).toContainText('0.00 USD');
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(page.getByLabel('History account')).toHaveValue('wallet:alice');
+  await expect(page.getByTestId('available-balance')).toContainText('100.00 USD');
+});

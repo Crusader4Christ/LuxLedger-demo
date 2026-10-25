@@ -6,6 +6,10 @@ import {
   type DemoRequest,
   type DemoState,
   requestToCurl,
+  request,
+  loadAccountDetails,
+  type DemoAccountDetails,
+  type DemoReconciliation,
 } from './api';
 import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
@@ -45,6 +49,13 @@ const copyText = async (value: string): Promise<boolean> => {
 
 export function App() {
   const [state, setState] = useState<DemoState | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState('wallet:alice');
+  const [accountDetails, setAccountDetails] = useState<DemoAccountDetails | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [view, setView] = useState<'operator' | 'finance'>('operator');
+  const [reconReference, setReconReference] = useState('demo-seed-funding-alice-v1');
+  const [reconAmount, setReconAmount] = useState('100.00');
+  const [recon, setRecon] = useState<DemoReconciliation | null>(null);
   const [from, setFrom] = useState('wallet:alice');
   const [to, setTo] = useState('wallet:bob');
   const [amount, setAmount] = useState('25.00');
@@ -55,13 +66,18 @@ export function App() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const latest = useMemo(() => state?.transactions.at(-1) ?? null, [state]);
 
-  const run = async (operation: DemoRequest, action: () => Promise<DemoState>) => {
+  const run = async <T,>(
+    operation: DemoRequest,
+    action: () => Promise<T>,
+    onSuccess: (result: T) => void,
+  ) => {
     setBusy(true);
     setError(null);
     setCopyStatus('idle');
     setLastRequest(operation);
     try {
-      setState(await action());
+      onSuccess(await action());
+      if (operation.path === '/demo/reset') setRecon(null);
     } catch (cause) {
       setError(cause instanceof DemoApiError ? cause.message : 'The demo is temporarily unavailable');
     } finally {
@@ -70,8 +86,25 @@ export function App() {
   };
 
   useEffect(() => {
-    void run(demoRequests.state(), demoApi.state);
+    void run(demoRequests.state(), demoApi.state, setState);
   }, []);
+
+  useEffect(() => {
+    setAccountDetails(null);
+    setDetailsError(null);
+    if (!state) return;
+    if (!state.accounts.some(account => account.address === selectedAddress)) {
+      if (state.accounts[0]) setSelectedAddress(state.accounts[0].address);
+      return;
+    }
+    const controller = new AbortController();
+    void loadAccountDetails(selectedAddress, controller.signal).then(details => {
+      if (!controller.signal.aborted) setAccountDetails(details);
+    }).catch(cause => {
+      if (!controller.signal.aborted) setDetailsError(cause instanceof Error ? cause.message : 'Account details unavailable');
+    });
+    return () => controller.abort();
+  }, [state, selectedAddress]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -81,7 +114,7 @@ export function App() {
       return;
     }
     const operation = demoRequests.transfer(from, to, minor);
-    void run(operation, () => demoApi.transfer(from, to, minor));
+    void run(operation, () => demoApi.transfer(from, to, minor), setState);
   };
 
   const curl = requestToCurl(lastRequest, window.location.origin);
@@ -96,13 +129,16 @@ export function App() {
           <span className="mark">L</span> LuxLedger
         </a>
         <nav>
+          <label>View<select aria-label="Demo view" value={view} onChange={event => setView(event.target.value as 'operator' | 'finance')}>
+            <option value="operator">Operator</option><option value="finance">Finance</option>
+          </select></label>
           <a href={GITHUB_URL} rel="noreferrer" target="_blank">GitHub</a>
           <a href="/docs" rel="noreferrer" target="_blank">API docs</a>
-          {state?.reset_enabled && (
+          {view === 'operator' && state?.reset_enabled && (
             <button
               className="secondary"
               disabled={busy}
-              onClick={() => void run(demoRequests.reset(), demoApi.reset)}
+              onClick={() => void run(demoRequests.reset(), demoApi.reset, setState)}
             >
               Reset demo
             </button>
@@ -157,29 +193,37 @@ export function App() {
               </article>
             )) ?? <p className="muted">Load or reset the demo to begin.</p>}
           </div>
-          <div className="create-account">
+          {view === 'operator' && <div className="create-account">
             <input aria-label="New account address" value={newAddress} onChange={(event) => setNewAddress(event.target.value)} />
             <button
               className="secondary"
               disabled={busy}
               onClick={() =>
-                void run(demoRequests.createAccount(newAddress), () =>
-                  demoApi.createAccount(newAddress),
+                void run(
+                  demoRequests.createAccount(newAddress),
+                  () => demoApi.createAccount(newAddress),
+                  setState,
                 )
               }
             >
               Add account
             </button>
-          </div>
+          </div>}
         </div>
 
-        <form className="panel transfer" onSubmit={submit}>
+        {view === 'operator' && <form className="panel transfer" onSubmit={submit}>
           <div className="panel-title"><h2>New transfer</h2><span>Double-entry</span></div>
           <label>From<select value={from} onChange={(event) => setFrom(event.target.value)}>{state?.accounts.map((a) => <option key={a.id}>{a.address}</option>)}</select></label>
           <label>To<select value={to} onChange={(event) => setTo(event.target.value)}>{state?.accounts.map((a) => <option key={a.id}>{a.address}</option>)}</select></label>
           <label>Amount<div className="amount"><span>$</span><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /></div></label>
           <button className="primary" disabled={busy || !state}>{busy ? 'Recording…' : 'Send transfer'}</button>
-        </form>
+          <button type="button" className="secondary" disabled={busy || !state} onClick={() => {
+            const minor = dollarsToMinor(amount);
+            if (minor === null || minor === '0') { setError('Enter a positive amount'); return; }
+            const operation: DemoRequest = { method: 'POST', path: '/demo/holds', body: { from, to, amount_minor: minor } };
+            void run(operation, () => request(operation), setState);
+          }}>Reserve transfer</button>
+        </form>}
       </section>
 
       <section className="panel ledger">
@@ -207,6 +251,61 @@ export function App() {
           </p>
         </> : <p className="muted">The two ledger entries will appear here after a transfer.</p>}
       </section>
+
+      <section className="panel ledger" aria-label="Transfer holds">
+        <div className="panel-title"><h2>Holds</h2><span>All active / latest 100 completed</span></div>
+        {state?.holds.length === 0 && <p>No holds yet. Reserve a transfer to begin.</p>}
+        {(['active', 'completed'] as const).map(group => <div key={group}>
+          <h3>{group === 'active' ? 'Active holds' : 'Latest 100 completed holds'}</h3>
+          {state?.holds.filter(hold => (hold.state === 'HELD') === (group === 'active')).map(hold => (
+            <article className="hold-row" key={hold.id} data-testid={`hold-${hold.id}`}>
+              <div><strong>{hold.description ?? hold.reference}</strong><code>{hold.reference}</code></div>
+              <strong>{hold.state}</strong>
+              <span>Amount: {formatMoney(hold.original_amount_minor, state.currency)}</span>
+              <span>Remaining: {formatMoney(hold.remaining_amount_minor, state.currency)}</span>
+              {view === 'operator' && hold.state === 'HELD' && <div>
+                {(['commit', 'void'] as const).map(action => <button key={action} className="secondary" disabled={busy}
+                  onClick={() => { const operation: DemoRequest = { method: 'POST', path: `/demo/holds/${hold.id}/${action}` };
+                    void run(operation, () => request(operation), setState); }}>{action === 'commit' ? 'Commit hold' : 'Void hold'}</button>)}
+              </div>}
+            </article>
+          ))}
+        </div>)}
+      </section>
+
+      <section className="panel ledger" aria-label="Ledger history">
+        <div className="panel-title"><h2>History</h2><span>First 100 transactions / selected account events</span></div>
+        {state?.transactions_limited || accountDetails?.history_limited ? <p>Showing a bounded history. Use the canonical API pagination for newer records.</p> : null}
+        {state?.transactions.map(tx => <details key={tx.id}><summary>{tx.description ?? tx.reference} · {tx.created_at}</summary>
+          <code>{tx.reference}</code>{tx.entries.map((entry, index) => <p key={index}>{entry.account_address}: {entry.signed_amount_minor} minor</p>)}
+        </details>)}
+        <h3>Balance events</h3>
+        <label>Account<select aria-label="History account" value={selectedAddress} onChange={event => setSelectedAddress(event.target.value)}>
+          {state?.accounts.map(account => <option key={account.id}>{account.address}</option>)}
+        </select></label>
+        {detailsError && <p role="alert">{detailsError}</p>}
+        {!accountDetails && !detailsError && <p>Loading account details…</p>}
+        {accountDetails && <p data-testid="available-balance">Available: {formatMoney(accountDetails.available_minor, accountDetails.currency)}</p>}
+        {accountDetails?.history.map(event => <p key={event.id}>
+          {accountDetails.address} · {event.event} · {event.created_at} · posted {event.posted_minor} / reserved {event.reserved_minor} minor
+        </p>)}
+      </section>
+
+      {view === 'finance' && <section className="panel ledger" aria-label="Finance reconciliation">
+        <div className="panel-title"><h2>Reconciliation</h2><span>External statement vs ledger</span></div>
+        <p>Trial balance: debits {state && formatMoney(state.trial_balance.debits_minor, state.currency)} / credits {state && formatMoney(state.trial_balance.credits_minor, state.currency)}</p>
+        <p>Submit one external statement record. Matching uses reference, amount and currency; other ledger transactions are reported as unmatched internal records.</p>
+        <label>Statement reference<input aria-label="Statement reference" value={reconReference} onChange={event => setReconReference(event.target.value)} /></label>
+        <label>Statement amount<input aria-label="Statement amount" value={reconAmount} onChange={event => setReconAmount(event.target.value)} /></label>
+        <button className="primary" disabled={busy || !state} onClick={() => {
+          const minor = dollarsToMinor(reconAmount);
+          if (minor === null || minor === '0') { setError('Enter a positive statement amount'); return; }
+          setRecon(null);
+          void run(demoRequests.reconcile(reconReference, minor), () => demoApi.reconcile(reconReference, minor), setRecon);
+        }}>Run reconciliation</button>
+        {recon && <div role="status"><p>Matched: {recon.matchedCount} · Mismatched: {recon.mismatchedCount} · Unmatched external: {recon.unmatchedExternalCount} · Unmatched internal: {recon.unmatchedInternalCount}</p>
+          <code>Run {recon.id}</code>{recon.results.map(result => <p key={result.id}>{result.status}: {result.reason}</p>)}</div>}
+      </section>}
 
       <section className="panel request-preview" aria-labelledby="request-preview-title">
         <div className="panel-title">

@@ -44,7 +44,27 @@ export class DemoService {
     const addresses = new Map(accounts.map((account) => [account.id, account.name]));
     const transactions = await this.services.transactions.list({ tenantId, ledgerId, limit: 100 });
 
+    // The released service has no hold-list operation. This tenant/ledger-scoped
+    // read is presentation only; all lifecycle mutations use the public hold service.
+    // Active holds must remain actionable even after the completed history fills up.
+    const holds = await this.db.sql`select id, reference, description, state,
+      original_amount_minor::text as original_amount_minor,
+      remaining_amount_minor::text as remaining_amount_minor
+      from (
+        select * from holds
+        where tenant_id = ${tenantId} and ledger_id = ${ledgerId} and state = 'HELD'
+        union all
+        (select * from holds
+        where tenant_id = ${tenantId} and ledger_id = ${ledgerId} and state <> 'HELD'
+        order by created_at desc, id desc limit 100)
+      ) as demo_holds
+      order by created_at desc, id desc`;
+    const trial = await this.services.balances.getTrialBalance({ tenantId, ledgerId });
     return {
+      holds,
+      trial_balance: { debits_minor: trial.totalDebitsMinor.toString(),
+        credits_minor: trial.totalCreditsMinor.toString() },
+      transactions_limited: transactions.nextCursor !== null,
       currency: CURRENCY,
       ledger_id: ledgerId,
       reset_enabled: this.config.resetEnabled,
@@ -72,10 +92,32 @@ export class DemoService {
     };
   }
 
+  async getAccountDetails(address: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const account = await this.accountByAddress(tenantId, ledgerId, normalizeAddress(address));
+    const at = new Date();
+    const balance = await this.services.balances.getAt({ tenantId, accountId: account.id, at });
+    const history = await this.services.balances.listHistory({
+      tenantId, accountId: account.id, from: new Date(0), to: at, limit: 100,
+    });
+    return {
+      address: account.name,
+      currency: account.currency,
+      available_minor: balance.availableMinor.toString(),
+      history_limited: history.nextCursor !== null,
+      history: history.data.map(event => ({
+        id: event.id, event: event.eventType,
+        posted_minor: event.postedMinor.toString(),
+        reserved_minor: event.reservedDeltaMinor.toString(),
+        created_at: event.createdAt.toISOString(),
+      })),
+    };
+  }
+
   async createAccount(address: string) {
     const normalized = normalizeAddress(address);
     const { tenantId, ledgerId } = await this.context();
-    if ((await this.accounts(tenantId, ledgerId)).some((account) => account.name === normalized)) {
+    if (await this.accountExists(tenantId, ledgerId, normalized)) {
       throw new DemoInputError(`Account ${normalized} already exists`);
     }
     await this.services.accounts.create({
@@ -92,9 +134,8 @@ export class DemoService {
   async fund(address: string, amountMinor: string, reference = `demo-funding-${randomUUID()}`) {
     const amount = parseAmount(amountMinor);
     const { tenantId, ledgerId } = await this.context();
-    const accounts = await this.accounts(tenantId, ledgerId);
-    const destination = findAccount(accounts, normalizeAddress(address));
-    const funding = findAccount(accounts, FUNDING_ADDRESS);
+    const destination = await this.accountByAddress(tenantId, ledgerId, normalizeAddress(address));
+    const funding = await this.accountByAddress(tenantId, ledgerId, FUNDING_ADDRESS);
     await this.services.transactions.create({
       tenantId,
       ledgerId,
@@ -117,9 +158,8 @@ export class DemoService {
     }
     const amount = parseAmount(amountMinor);
     const { tenantId, ledgerId } = await this.context();
-    const accounts = await this.accounts(tenantId, ledgerId);
-    const source = findAccount(accounts, sourceAddress);
-    const destination = findAccount(accounts, destinationAddress);
+    const source = await this.accountByAddress(tenantId, ledgerId, sourceAddress);
+    const destination = await this.accountByAddress(tenantId, ledgerId, destinationAddress);
     await this.services.transactions.create({
       tenantId,
       ledgerId,
@@ -132,6 +172,47 @@ export class DemoService {
       ],
     });
     return this.getState();
+  }
+
+  async createHold(from: string, to: string, amountMinor: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const source = await this.accountByAddress(tenantId, ledgerId, normalizeAddress(from));
+    const destination = await this.accountByAddress(tenantId, ledgerId, normalizeAddress(to));
+    if (source.id === destination.id) throw new DemoInputError('Source and destination accounts must be different');
+    const amount = parseAmount(amountMinor);
+    await this.services.holds.create({ tenantId, ledgerId, reference: `demo-hold-${randomUUID()}`,
+      currency: CURRENCY, description: `${source.name} to ${destination.name}`,
+      entries: [entry(source.id, amount), entry(destination.id, -amount)] });
+    return this.getState();
+  }
+
+  async resolveHold(holdId: string, action: 'commit' | 'void') {
+    const { tenantId, ledgerId } = await this.context();
+    const rows = await this.db.sql`select id from holds where id = ${holdId}
+      and tenant_id = ${tenantId} and ledger_id = ${ledgerId}`;
+    if (rows.length === 0) throw new DemoInputError('Unknown demo hold');
+    if (action === 'commit') {
+      await this.services.holds.commit({ tenantId, holdId, reference: `demo-commit-${holdId}` });
+    } else {
+      await this.services.holds.void({ tenantId, holdId });
+    }
+    return this.getState();
+  }
+
+  async reconcile(reference: string, amountMinor: string) {
+    const { tenantId, ledgerId } = await this.context();
+    const upload = await this.services.reconciliation.ingest({ tenantId, source: 'demo-statement',
+      records: [{ externalId: randomUUID(), reference, amountMinor: parseAmount(amountMinor),
+        currency: CURRENCY, occurredAt: new Date() }] });
+    const rules = await this.services.reconciliation.listRules({
+      tenantId, limit: 1, where: { name: { eq: 'Demo statement match' } },
+    });
+    let rule = rules.data[0];
+    rule ??= await this.services.reconciliation.createRule({ tenantId, name: 'Demo statement match',
+      criteria: [{ field: 'reference', operator: 'equals' }, { field: 'amount', operator: 'equals' },
+        { field: 'currency', operator: 'equals' }] });
+    return this.services.reconciliation.run({ tenantId, ledgerId, uploadId: upload.id,
+      matchingRuleIds: [rule.id], strategy: 'one_to_one' });
   }
 
   async reset() {
@@ -177,10 +258,16 @@ export class DemoService {
     if (tenantId === undefined) {
       throw new Error('Unable to create the demo tenant');
     }
-    if (!(await this.services.assets.list(tenantId)).some((asset) => asset.code === CURRENCY)) {
+    const assets = await this.services.assets.list({
+      tenantId, limit: 1, where: { code: { eq: CURRENCY } },
+    });
+    if (assets.data.length === 0) {
       await this.services.assets.create({ tenantId, code: CURRENCY, scale: 2 });
     }
-    let ledger = (await this.services.ledgers.list(tenantId)).find((item) => item.name === LEDGER_NAME);
+    const ledgers = await this.services.ledgers.list({
+      tenantId, limit: 1, where: { name: { eq: LEDGER_NAME } },
+    });
+    let ledger = ledgers.data[0];
     ledger ??= await this.services.ledgers.create({ tenantId, name: LEDGER_NAME });
     const existingAccounts = await this.accounts(tenantId, ledger.id);
     for (const account of [
@@ -218,13 +305,41 @@ export class DemoService {
     } catch {
       throw new DemoNotReadyError();
     }
-    const ledger = (await this.services.ledgers.list(tenantId)).find((item) => item.name === LEDGER_NAME);
+    const ledgers = await this.services.ledgers.list({
+      tenantId, limit: 1, where: { name: { eq: LEDGER_NAME } },
+    });
+    const ledger = ledgers.data[0];
     if (ledger === undefined) throw new DemoNotReadyError();
     return { tenantId, ledgerId: ledger.id };
   }
 
   private async accounts(tenantId: string, ledgerId: string): Promise<AccountEntity[]> {
-    return (await this.services.accounts.list({ tenantId, ledgerId, limit: 100 })).data;
+    const accounts: AccountEntity[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await this.services.accounts.list({ tenantId, ledgerId, limit: 100, cursor });
+      accounts.push(...page.data);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return accounts;
+  }
+
+  private async accountByAddress(tenantId: string, ledgerId: string, name: string): Promise<AccountEntity> {
+    const page = await this.services.accounts.list({
+      tenantId, ledgerId, limit: 1, where: { name: { eq: name } },
+    });
+    const account = page.data[0];
+    if (account === undefined) {
+      throw new DemoInputError(`Unknown account ${name}`);
+    }
+    return account;
+  }
+
+  private async accountExists(tenantId: string, ledgerId: string, name: string): Promise<boolean> {
+    const page = await this.services.accounts.list({
+      tenantId, ledgerId, limit: 1, where: { name: { eq: name } },
+    });
+    return page.data.length > 0;
   }
 }
 
@@ -242,12 +357,6 @@ const parseAmount = (value: string): bigint => {
     throw new DemoInputError('amount_minor must be a positive base-10 integer string');
   }
   return BigInt(value);
-};
-
-const findAccount = (accounts: AccountEntity[], address: string): AccountEntity => {
-  const account = accounts.find((candidate) => candidate.name === address);
-  if (account === undefined) throw new DemoInputError(`Unknown account ${address}`);
-  return account;
 };
 
 const entry = (accountId: string, signedAmountMinor: bigint) => ({
