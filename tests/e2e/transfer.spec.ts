@@ -158,9 +158,10 @@ test('new sandbox and EUR selection preserve independent balances; mobile fits',
   await page.getByRole('button', { name: 'New sandbox', exact: true }).click();
   await expect(page.getByLabel('Ledger', { exact: true })).toContainText('USD product ledger');
   await expect(page.getByTestId('account-wallet:alice')).toContainText('100.00 USD');
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await tab(page, 'Overview');
-  await expect(page.getByRole('heading', { name: 'Choose a product flow.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Explore real ledger flows.' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Workspace sections' }).getByRole('button', { name: 'Overview' })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: '/tmp/luxledger-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
