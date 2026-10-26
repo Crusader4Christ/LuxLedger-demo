@@ -256,7 +256,7 @@ export function App() {
       </section>}
     </>}
 
-    {area === 'Holds' && <section className="panel" aria-label="Transfer holds"><div className="panel-title"><h2>Payment authorizations</h2><span>25 per page</span></div><p className="muted">Hold listing is a tenant-scoped host read because library 0.5 has no list endpoint. Every mutation uses /v1/holds.</p>
+    {area === 'Holds' && <section className="panel" aria-label="Transfer holds"><div className="panel-title"><h2>Payment authorizations</h2><span>25 per page</span></div>
       {!holds.length && <p>No holds yet. Reserve a payment to begin.</p>}{holds.map(h => <article className={`hold-row ${ids.hold === h.id ? 'selected' : ''}`} key={h.id}><div><strong>{h.description ?? h.reference}</strong><code>{h.reference}</code></div><span className="badge">{h.state}</span><span>{money(h.original_amount_minor, currency, scale)} / remaining {money(h.remaining_amount_minor, currency, scale)}</span><button className="secondary" onClick={() => setIds(old => ({ ...old, hold: h.id }))}>Select hold</button></article>)}
       {holdCursor && <button className="secondary" disabled={busy} onClick={async () => { const result = await execute({ method: 'GET', path: query('/demo/session/holds', { ledger_id: ledger, limit: 25, cursor: holdCursor }) }); if (result) { const p = result as unknown as Page<Hold>; setHolds(old => [...old, ...p.data]); setHoldCursor(p.next_cursor); } }}>Load more holds</button>}
       <p>Selected hold: <code>{ids.hold || 'Create or select one'}</code></p>
