@@ -1,8 +1,7 @@
-import { luxLedgerDrizzleSchemaPath } from '@luxledger/postgres-adapter/drizzle-config';
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
-  schema: luxLedgerDrizzleSchemaPath,
+  schema: './src/demo/schema.ts',
   out: '../../drizzle',
   dialect: 'postgresql',
   dbCredentials: {

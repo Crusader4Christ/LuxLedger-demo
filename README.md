@@ -1,8 +1,10 @@
 # LuxLedger Demo
 
-Reference application showing how to compose `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and a React UI into a working account-transfer product. The checked-in LuxLedger contract is [OpenAPI 0.5.0](openapi/openapi.yaml).
+Interactive reference console composing `@luxledger/core`, Fastify, Drizzle, PostgreSQL, and React into wallets, marketplace settlement, authorizations, prepaid credits, and finance workflows. The checked-in LuxLedger contract is [OpenAPI 0.5.0](openapi/openapi.yaml).
 
-The backend is the main example: it registers the canonical LuxLedger routes and adds a small application layer that maps addresses such as `wallet:alice` to ledger accounts. A transfer becomes one balanced transaction with visible debit and credit entries. The browser uses only `/demo/*`; the bootstrap API key remains server-side.
+The browser sends actual `/v1/*` requests using the released OpenAPI payloads and responses. Each browser session gets an isolated tenant, USD/EUR ledgers, six accounts per ledger, and a short-lived SERVICE token. Bootstrap administrative credentials remain server-side. The **API docs** link opens locally served Swagger UI with authenticated **Try it out** in a separate tab.
+
+See [the console guide](docs/CONSOLE.md) for every scenario, endpoint family, and sandbox boundary.
 
 The wider product guarantees and package boundaries are maintained in the upstream [LuxLedger documentation](https://github.com/Crusader4Christ/LuxLedger/tree/main/docs). This repository documents the behavior of the exact package set pinned by the demo.
 
@@ -30,7 +32,7 @@ Node does **not** read `.env` automatically, and Node forbids `--env-file` insid
 
 ### One-command demo
 
-After the initial install and `.env` setup above, start PostgreSQL, apply migrations, start API and web, and reset the deterministic dataset with:
+After the initial install and `.env` setup above, start PostgreSQL, apply migrations, start API and web with:
 
 ```sh
 npm run demo
@@ -96,63 +98,15 @@ Both return `HTTP/1.1 200 OK` and:
 
 `/health` proves the process is serving. `/ready` also runs `select 1` against PostgreSQL and returns `503` with `{"error":"NOT_READY","message":"Service not ready"}` when the database is unavailable.
 
-### 5. Seed and open the transfer demo
+### 5. Open the console
 
-With the API running, create the deterministic local dataset:
+Open `http://localhost:5173`. The first visit provisions a private sandbox with Alice at 100.00 and Bob at 0.00 in each of the USD and EUR ledgers. No global reset or shared seed is needed for the browser.
 
-```sh
-curl -sS -X POST http://localhost:3000/demo/reset
-```
+Choose one of five guided scenarios, or open Accounts, Transactions, Holds, Credits, Reconciliation, and Reports. Every operation exposes editable canonical JSON; the request journal shows real HTTP status, body, timing, and request ID. **New sandbox** provisions a new tenant and revokes only the previous session's credential.
 
-This creates `wallet:alice` with USD 100.00, `wallet:bob` with USD 0.00, and a hidden system funding account. Reset is disabled when `NODE_ENV=production` and is intended only for the isolated demo database.
+The API walkthrough below uses an independently bootstrapped ADMIN key. To use it on a brand-new database, complete step 3 before opening the browser: library bootstrap is intentionally database-wide and one-shot. Browser sandboxes provision SERVICE-only tenants separately.
 
-Start the web workspace in a second shell:
-
-```sh
-npm run dev:web
-```
-
-Open `http://localhost:5173`. Create another address or transfer USD 25.00 from Alice to Bob. The UI shows the resulting balances and the two entries recorded by LuxLedger.
-It also shows the product-facing HTTP request, provides a copyable curl command, and links to the
-canonical Swagger/OpenAPI documentation.
-
-For API and web together after the database has been migrated:
-
-```sh
-npm run dev:local
-```
-
-## Lifecycle and finance views
-
-The **Operator** view preserves the transfer flow and adds **Reserve transfer** using the same
-From, To and Amount fields. Reservations reduce Alice's available balance without changing
-posted balances. **Commit hold** posts the reserved transfer; **Void hold** releases it.
-The history panel shows transactions. Select one account to load its available balance and balance events, including hold creation, commit and void.
-**Reset demo** restores Alice USD 100.00 / Bob USD 0.00 and clears holds and reconciliation data.
-
-Switch **View → Finance** to inspect the trial balance and reconcile a statement record.
-The default reference `demo-seed-funding-alice-v1` and amount `100.00` match the opening funding.
-Change the amount to `99.00` to demonstrate a mismatch; use an unknown reference for an unmatched
-external record. Each click persists a separate reconciliation upload/run. Other ledger transactions
-appear as unmatched internal records because this example uploads one statement record at a time.
-
-These are presentation modes for a shared demo, not authenticated user roles. The hosted deployment's
-access control protects all `/demo/*` routes; the mode selector grants no permissions. Finance hides
-wallet mutations and reset, but can run reconciliation. Canonical `/v1/*` authentication and key
-revocation are unchanged, and credentials remain server-side.
-
-All writes use public application services from the exact released `@luxledger/*` **0.5.0** packages. Account lookups use the 0.5.0 typed `where.name.eq` filter, and account collections use cursor pagination.
-The one demo-only hold-list read uses the pinned PostgreSQL schema, filters by tenant and ledger,
-and returns all active holds plus the latest 100 completed holds. The UI separates active and completed
-holds and shows each transfer direction and original amount. No hold invariant or mutation is implemented with SQL.
-Transaction/history reads show the first 100 records; truncation is labelled. Account details are loaded on demand through `GET /demo/accounts/:address/details`. The state endpoint never fans out balance/history reads across accounts.
-The state response combines separate reads and is not an atomic snapshot during concurrent activity.
-Use the canonical paginated HTTP APIs for full histories and integration workflows.
-
-Product routes added by this demo are `POST /demo/holds`, `POST /demo/holds/:id/commit`,
-`POST /demo/holds/:id/void`, and `POST /demo/reconciliation` (reference plus positive
-`amount_minor`). The canonical OpenAPI file remains byte-identical to `@luxledger/http`;
-it describes `/v1/*`, while these product routes follow the existing `/demo/*` composition.
+The legacy shared `/demo/state`, `/demo/transfers`, and `/demo/reset` examples remain available only outside production for compatibility and legacy integration tests. Their reset truncates the dedicated database; it is not used by the new console or `npm run demo`.
 
 ## Automated verification
 
@@ -168,7 +122,7 @@ Then run the complete verification pipeline:
 npm test
 ```
 
-It first verifies that `openapi/openapi.yaml` is byte-for-byte identical to the contract shipped by the installed `@luxledger/http` package, then runs workspace typechecks and the production web build, recreates only the dedicated `luxledger_demo_test` database, verifies transfer, hold/commit/void, available balances, history, reconciliation match/mismatch/unmatched outcomes and reset through the API, and repeats the lifecycle and view switching through Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
+The pipeline checks unit helpers, canonical OpenAPI equality, generated client types, schema drift, TypeScript, and the production build. It recreates only `luxledger_demo_test`, checks legacy compatibility and real `/v1` workflows (isolation, retries, rollback, partial captures, refunds, expiration, statements and reconciliation), then exercises the console, CSV import, Swagger execution and mobile layout in Chromium. The test database guard rejects any `DATABASE_URL_TEST` whose database name is not exactly `luxledger_demo_test`.
 
 Individual commands are `npm run test:unit`, `npm run verify:openapi`, `npm run test:integration`, and `npm run test:e2e`.
 
@@ -177,7 +131,7 @@ Tests live in `tests/unit/`, `tests/integration/`, and `tests/e2e/`. The `script
 ## Private hosted sales demo
 
 The repository includes a provider-neutral container deployment with a same-origin nginx proxy,
-production API settings, idempotent initial seed, and an operator-only guarded reset.
+production API settings, per-browser sandboxes, and an operator-only guarded whole-database reset.
 
 - [Hosted demo runbook](docs/HOSTED_DEMO.md)
 - [Five-minute sales walkthrough](docs/SALES_WALKTHROUGH.md)

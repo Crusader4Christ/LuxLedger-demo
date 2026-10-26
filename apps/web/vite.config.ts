@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     proxy: {
+      '/v1': mode === 'test' ? 'http://127.0.0.1:3100' : 'http://127.0.0.1:3000',
       '/demo': mode === 'test' ? 'http://127.0.0.1:3100' : 'http://127.0.0.1:3000',
       '/docs': mode === 'test' ? 'http://127.0.0.1:3100' : 'http://127.0.0.1:3000',
       '/openapi.yaml': mode === 'test' ? 'http://127.0.0.1:3100' : 'http://127.0.0.1:3000',
