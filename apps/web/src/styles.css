@@ -199,7 +199,7 @@ td { padding: 12px; border-bottom: 1px solid #e7ebef; max-width: 300px; overflow
 
 /* Give the introduction and the working console their own visual rhythm. */
 main { width: min(1440px, calc(100% - 72px)); }
-.hero { max-width: none; padding: 88px 0 72px; }
+.hero { max-width: none; padding: 88px 0 38px; }
 .hero h1 { max-width: 1250px; margin: 22px 0 30px; font-size: clamp(64px, 7.2vw, 112px); line-height: .98; letter-spacing: -.055em; }
 .hero-copy { max-width: 930px; font-size: clamp(19px, 2.1vw, 26px); line-height: 1.5; }
 .hero-actions { gap: 12px; margin-top: 44px; }
@@ -210,20 +210,23 @@ main { width: min(1440px, calc(100% - 72px)); }
 .hero-proof div { min-height: 86px; padding: 20px 24px; }
 .hero-proof strong { color: #1d2c3e; font-size: 15px; }
 .hero-proof span { font-size: 13px; }
-.workspace-shell { margin-top: 88px; scroll-margin-top: 24px; }
-.workspace-top { display: flex; align-items: end; gap: 38px; border: 0; padding: 0; }
+.workspace-shell { margin-top: 40px; scroll-margin-top: 24px; }
+.workspace-top { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 0 0 24px; border: 0; border-bottom: 1px solid #dce2e8; }
 .workspace-heading { min-width: 280px; padding: 0; border: 0; }
 .workspace-heading .eyebrow { margin: 0 0 8px; }
 .workspace-heading h2 { margin: 0; color: #142033; font: 500 clamp(28px, 3.1vw, 38px)/1.1 Georgia, serif; letter-spacing: -.035em; }
-.workspace-session { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; color: #708092; font-size: 12px; }
-.workspace-controls { display: flex; align-items: end; gap: 12px; }
+.workspace-session { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; border: 1px solid #dce8e2; border-radius: 99px; background: #f5faf7; color: #567062; font-size: 12px; white-space: nowrap; }
+.workspace-controls { display: flex; align-items: end; gap: 12px; margin-top: 22px; }
 .workspace-controls > button { min-height: 42px; white-space: nowrap; }
-.workspace-ledger { display: grid; grid-template-columns: minmax(205px, 250px); gap: 8px; }
+.workspace-ledger { display: grid; grid-template-columns: minmax(240px, 360px); gap: 8px; }
 .workspace-ledger > label { color: #596a7e; font-size: 11px; }
 .workspace-ledger select { min-height: 42px; padding: 9px 12px; }
-.workspace-scope { margin: 20px 0 0; color: #7a8898; font-size: 12px; }
-.ledger-currency-note { max-width: 930px; margin: 14px 0 28px; padding: 2px 0 2px 12px; border-left: 2px solid #ac915e; border-radius: 0; background: transparent; color: #746955; font-size: 12px; line-height: 1.55; }
-.tabs { margin: 0 0 34px; padding: 0 0 12px; }
+.ledger-currency-note { max-width: 900px; margin: 18px 0 24px; padding: 0; border: 0; border-radius: 0; background: transparent; color: #738092; font-size: 12px; line-height: 1.55; }
+.ledger-currency-note strong { color: #596678; }
+.tabs { gap: 28px; flex-wrap: nowrap; justify-content: flex-start; margin: 0 0 34px; padding: 0; }
+.tabs button { padding: 13px 0 15px; border-bottom: 2px solid transparent; border-radius: 0; font-size: 14px; }
+.tabs button[aria-current] { background: transparent; color: #172c40; border-bottom-color: #172c40; }
+.tabs button:hover { color: #172c40; }
 .scenario-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
 .scenario-card { display: flex; flex-direction: column; min-height: 215px; padding: 20px; border-radius: 12px; }
 .scenario-card h3 { margin: 25px 0 8px; font-size: 18px; }
@@ -232,19 +235,20 @@ main { width: min(1440px, calc(100% - 72px)); }
 @media (max-width: 1200px) { .scenario-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   main { width: calc(100% - 32px); }
-  .hero { padding: 68px 0 58px; }
+  .hero { padding: 68px 0 34px; }
   .hero h1 { font-size: clamp(48px, 10vw, 72px); }
   .hero-copy { font-size: 18px; }
   .hero-actions { margin-top: 32px; }
-  .workspace-shell { margin-top: 66px; }
-  .workspace-top { align-items: stretch; gap: 24px; }
+  .workspace-shell { margin-top: 32px; }
+  .workspace-top { align-items: flex-start; gap: 16px; }
   .workspace-heading { min-width: 0; }
   .workspace-controls { flex-wrap: wrap; }
   .workspace-ledger { grid-template-columns: minmax(205px, 250px); }
+  .tabs { gap: 22px; }
   .scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
-  .hero { padding: 54px 0 48px; }
+  .hero { padding: 54px 0 30px; }
   .hero h1 { margin: 18px 0 24px; font-size: clamp(44px, 11.5vw, 60px); }
   .hero-actions { display: flex; }
   .hero-actions .button-link { width: 100%; }
@@ -253,7 +257,7 @@ main { width: min(1440px, calc(100% - 72px)); }
   .hero-proof div, .hero-proof div:first-child { min-height: 85px; padding: 16px 12px; border-top: 1px solid #dce2e8; border-left: 0; }
   .hero-proof div:nth-child(-n+2) { border-top: 0; }
   .hero-proof div:nth-child(even) { border-left: 1px solid #dce2e8; }
-  .workspace-shell { margin-top: 54px; }
+  .workspace-shell { margin-top: 28px; }
   .workspace-controls { display: grid; grid-template-columns: 1fr auto; align-items: end; }
   .workspace-ledger { grid-template-columns: minmax(0, 1fr); }
   .workspace-controls > button { padding: 9px 11px; }
