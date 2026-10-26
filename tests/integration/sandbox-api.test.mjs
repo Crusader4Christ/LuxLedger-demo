@@ -25,7 +25,14 @@ export async function testSandbox(apiUrl, databaseUrl = process.env.DATABASE_URL
   assert.equal(ledgers.data.length, 1); assert.ok(ledgers.next_cursor);
   const secondPage = (await call('GET', '/v1/ledgers?limit=1&cursor=' + encodeURIComponent(ledgers.next_cursor), undefined, 200)).body;
   assert.equal(secondPage.data.length, 1);
-  const ledger = ledgers.data[0];
+  const eurLedger = [...ledgers.data, ...secondPage.data].find(item => item.name === 'EUR product ledger');
+  assert.ok(eurLedger);
+  const eurAccounts = (await call('GET', `/v1/accounts?ledger_id=${eurLedger.id}`, undefined, 200)).body.data;
+  assert.equal(eurAccounts.find(account => account.code === 'DEMO_PRIMARY')?.name, 'wallet:eva');
+  assert.equal(eurAccounts.find(account => account.code === 'DEMO_SECONDARY')?.name, 'wallet:leo');
+  assert.equal(eurAccounts.find(account => account.code === 'DEMO_PRIMARY')?.balance_minor, '-17500');
+  const ledger = [...ledgers.data, ...secondPage.data].find(item => item.name === 'USD product ledger');
+  assert.ok(ledger);
   const accounts = (await call('GET', `/v1/accounts?ledger_id=${ledger.id}`, undefined, 200)).body.data;
   const id = name => accounts.find(a => a.name === name).id;
   const currency = accounts[0].currency;
