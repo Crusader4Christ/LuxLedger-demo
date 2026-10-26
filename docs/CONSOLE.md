@@ -2,9 +2,10 @@
 
 Run `npm run demo` after the README environment setup. The browser uses the same-origin `/v1` HTTP API. All request amounts are decimal strings in minor units; display uses the provisioned asset scale. USD and EUR use scale 2 and separate default ledgers with different seeded accounts and opening balances (Alice: 100.00 USD; Eva: 175.00 EUR). Each transaction or hold uses one currency; there are no cross-currency transfers or FX conversion. **Demo UI limitation:** the interface assumes one currency per ledger and does not support mixed-currency accounts within a ledger. This is a demo constraint, not a library restriction.
 
+The **Guided demo** section sits above the workspace. Its five flow cards open editable API requests in the relevant workspace tab; it also explains the platform-side wallet accounting convention.
+
 ## Workspace
 
-- **Overview:** five editable guided scenarios and wallet balances.
 - **Accounts:** full paginated account directory, normal side, overdraft policy, grant capability, posted/reserved/available balances; create accounts and ledgers.
 - **Transactions:** transfer form with a persistent reference, marketplace fee split, funding, atomic bulk and rollback, reversal/correction, backdated posting, and deliberate invariant failures. Select a transaction to inspect its entries, metadata, accounting/creation timestamps and related transaction ID.
 - **Holds:** paginated reservations, selection, partial capture, capture remainder and void. Each new capture requires a new reference; an exact replay uses its original reference and amount.

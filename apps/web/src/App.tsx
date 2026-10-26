@@ -4,7 +4,7 @@ import { allPages, money, observeRequests, query, request, requestToCurl, setAcc
 import { operations, scenarios, type Area, type Context, type Operation } from './operations';
 import { entriesAreBalanced, toEntryDisplay } from './ledger-display';
 
-const areas: Area[] = ['Overview', 'Accounts', 'Transactions', 'Holds', 'Credits', 'Reconciliation', 'Reports'];
+const areas: Area[] = ['Accounts', 'Transactions', 'Holds', 'Credits', 'Reconciliation', 'Reports'];
 const pretty = (v: unknown) => JSON.stringify(v, null, 2);
 const ref = () => `demo-${crypto.randomUUID().slice(0, 8)}`;
 const initialIds = { tx: '', hold: '', grant: '', upload: '', rule: '', run: '' };
@@ -59,7 +59,7 @@ function ReadPanel({ title, path, busy, execute }: { title: string; path: string
 }
 
 export function App() {
-  const [session, setSession] = useState<Session | null>(null), [area, setArea] = useState<Area>('Overview');
+  const [session, setSession] = useState<Session | null>(null), [area, setArea] = useState<Area>('Accounts');
   const [ledgers, setLedgers] = useState<Ledger[]>([]), [ledger, setLedger] = useState(''), [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]), [txCursor, setTxCursor] = useState<string | null>(null), [txFilter, setTxFilter] = useState('');
   const [holds, setHolds] = useState<Hold[]>([]), [holdCursor, setHoldCursor] = useState<string | null>(null);
@@ -77,6 +77,7 @@ export function App() {
   const initialized = useRef(false);
   const refreshVersion = useRef(0);
   const inspectionVersion = useRef(0);
+  const balanceController = useRef<AbortController | null>(null);
   const refreshRef = useRef<() => Promise<Account[] | undefined>>(async () => undefined);
   const currency = accounts[0]?.currency ?? (ledgers.find(l => l.id === ledger)?.name.startsWith('EUR') ? 'EUR' : 'USD');
   const scale = session?.assets.find(a => a.code === currency)?.scale ?? 2;
@@ -87,6 +88,7 @@ export function App() {
 
   const bootstrap = useCallback(async (fresh: boolean) => {
     setBusy(true); setError(null);
+    if (fresh) { balanceController.current?.abort(); refreshVersion.current++; }
     try {
       let s: Session;
       if (fresh) s = await request<Session>({ method: 'POST', path: '/demo/session' });
@@ -94,6 +96,7 @@ export function App() {
         try { s = await request<Session>({ method: 'GET', path: '/demo/session' }); }
         catch (e) { if (e instanceof Error && 'status' in e && e.status === 401) s = await request<Session>({ method: 'POST', path: '/demo/session' }); else throw e; }
       }
+      setSelectedAccount(''); setBalance(null); setAccounts([]);
       setAccessToken(s.access_token); setSession(s); setIds(initialIds); setExpirationAsOf(''); setSelectedTx(null); setTxEntries([]); setBeforeAfter(null); setLastSent(null); setPreset(null); setScenario(null); setRecordId(null);
       const books = await allPages<Ledger>('/v1/ledgers?limit=200'); setLedgers(books); setLedger(books[0]?.id ?? '');
     } catch (e) { setError(describe(e)); } finally { setBusy(false); }
@@ -108,11 +111,14 @@ export function App() {
   const refresh = useCallback(async () => {
     if (!ledger) return;
     const version = ++refreshVersion.current;
-    const [a, t, h] = await Promise.all([
-      allPages<Account>(query('/v1/accounts', { ledger_id: ledger, limit: 200 })),
-      request<Page<Transaction>>({ method: 'GET', path: query('/v1/transactions', { ledger_id: ledger, limit: 10, ...(txFilter ? { where: pretty({ reference: { eq: txFilter } }) } : {}) }) }),
-      request<Page<Hold>>({ method: 'GET', path: query('/demo/session/holds', { ledger_id: ledger, limit: 25 }) }),
-    ]);
+    let a: Account[], t: Page<Transaction>, h: Page<Hold>;
+    try {
+      [a, t, h] = await Promise.all([
+        allPages<Account>(query('/v1/accounts', { ledger_id: ledger, limit: 200 })),
+        request<Page<Transaction>>({ method: 'GET', path: query('/v1/transactions', { ledger_id: ledger, limit: 10, ...(txFilter ? { where: pretty({ reference: { eq: txFilter } }) } : {}) }) }),
+        request<Page<Hold>>({ method: 'GET', path: query('/demo/session/holds', { ledger_id: ledger, limit: 25 }) }),
+      ]);
+    } catch (e) { if (version !== refreshVersion.current) return; throw e; }
     if (version !== refreshVersion.current) return;
     setAccounts(a); setTransactions(t.data); setTxCursor(t.next_cursor); setHolds(h.data); setHoldCursor(h.next_cursor);
     setSelectedAccount(old => a.some(x => x.id === old) ? old : a.find(x => x.code === 'DEMO_PRIMARY' || x.name === 'wallet:alice')?.id ?? a[0]?.id ?? '');
@@ -121,15 +127,17 @@ export function App() {
     return a;
   }, [ledger, txFilter]);
   refreshRef.current = refresh;
-  useEffect(() => { setAccounts([]); setTransactions([]); setHolds([]); setBalance(null); setIds(initialIds); setExpirationAsOf(''); setSelectedTx(null); setTxEntries([]); setPreset(null); setBeforeAfter(null); setLastSent(null); setReference(ref()); }, [ledger]);
+  useEffect(() => { setAccounts([]); setTransactions([]); setHolds([]); setSelectedAccount(''); setBalance(null); setIds(initialIds); setExpirationAsOf(''); setSelectedTx(null); setTxEntries([]); setPreset(null); setBeforeAfter(null); setLastSent(null); setReference(ref()); }, [ledger]);
   useEffect(() => { void refresh().catch(e => setError(describe(e))); }, [refresh]);
   useEffect(() => {
-    setBalance(null); if (!selectedAccount) return;
+    setBalance(null);
+    if (!accounts.some(account => account.id === selectedAccount && account.ledger_id === ledger && account.tenant_id === session?.tenant_id)) return;
     const controller = new AbortController();
+    balanceController.current = controller;
     void request<Balance>({ method: 'GET', path: query(`/v1/accounts/${selectedAccount}/balance-as-of`, { at: new Date().toISOString() }) }, controller.signal)
       .then(setBalance).catch(e => { if (!controller.signal.aborted) setError(describe(e)); });
-    return () => controller.abort();
-  }, [selectedAccount, accounts]);
+    return () => { controller.abort(); if (balanceController.current === controller) balanceController.current = null; };
+  }, [selectedAccount, accounts, ledger, session?.tenant_id]);
   const execute = async (operation: DemoRequest): Promise<Json | undefined> => {
     setBusy(true); setError(null); setCopied(false);
     try {
@@ -202,14 +210,18 @@ export function App() {
       <a href="https://github.com/Crusader4Christ/LuxLedger" target="_blank" rel="noreferrer">GitHub ↗</a><a href="/docs?demo=1" target="_blank" rel="noreferrer">API docs ↗</a>
     </nav></header>
     <section className="hero"><p className="eyebrow">OPEN-SOURCE FINANCIAL INFRASTRUCTURE</p><h1>The ledger layer for products that move money.</h1><p className="hero-copy">Build wallets, marketplaces, payouts, and stored-value products without maintaining double-entry invariants in application code.</p>
-      <div className="hero-actions"><a className="button-link primary" href="#workspace">Try the live demo</a><a className="button-link secondary" href="mailto:herman.klushin@gmail.com?subject=LuxLedger%20design%20partnership">Become a design partner</a></div>
+      <div className="hero-actions"><a className="button-link primary" href="#flows">Try the live demo</a><a className="button-link secondary" href="mailto:herman.klushin@gmail.com?subject=LuxLedger%20design%20partnership">Become a design partner</a></div>
       <p className="hero-note">Built for Node.js teams · PostgreSQL-backed · Framework-agnostic core</p>
     </section>
     <div className="proof-strip hero-proof"><div><strong>Atomic</strong><span>postings, holds and bulk rollback</span></div><div><strong>Idempotent</strong><span>safe retries by reference</span></div><div><strong>Auditable</strong><span>reversals, history and statements</span></div><div><strong>Reconciled</strong><span>provider matching and reports</span></div></div>
-    <section className="credit-spotlight" aria-label="Prepaid credit lifecycle"><div><p className="eyebrow">PREPAID CREDITS</p><h2>Expiring credits, fully accounted for.</h2></div><p>Issue grants, reserve and consume capacity, refund unused value, then expire eligible lots with traceable ledger entries.</p><a href="#workspace" onClick={() => switchArea('Credits')}>Explore credits <span aria-hidden="true">↗</span></a></section>
+    <section className="flow-guide" id="flows" aria-label="Guided demo flows">
+      <div className="flow-guide-heading"><div className="section-intro compact"><p className="eyebrow">GUIDED DEMO</p><h2>Explore real ledger flows.</h2><p>Choose a workflow to open its first API request. Follow the steps, edit the payloads and inspect each result.</p></div><a href="#workspace">Open workspace <span aria-hidden="true">↗</span></a></div>
+      <div className="scenario-grid">{scenarios.map((s, i) => <button className="scenario-card" disabled={!session || busy} key={s.name} onClick={() => { setScenario(i); setStep(0); openOperation(s.steps[0]); document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' }); }}><span className="scenario-number">0{i + 1} <span>↗</span></span><h3>{s.name}</h3><p>{s.summary}</p><small>{s.steps.length} steps · editable requests</small></button>)}</div>
+      <p className="flow-primer"><strong>Reading the ledger</strong><span>From the platform's perspective, customer wallets are CREDIT-normal liabilities. Positive entries are debits; negative entries are credits. Debiting a wallet lowers its displayed balance. Amounts use integer strings in minor units.</span></p>
+    </section>
     <section className="workspace-shell" id="workspace" aria-label="Live demo workspace">
     {error && <div className="error" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>}
-    <div className="workspace-top"><div className="workspace-heading"><p className="eyebrow">LIVE DEMO · v0.5.0</p><h2>Product ledger console</h2><div className="sandbox-line"><p className="workspace-session"><span className={`status-dot ${session ? 'online' : ''}`} />{session ? 'Sandbox ready · private tenant' : error ? 'Sandbox unavailable' : 'Connecting to sandbox…'}</p><button className="secondary" disabled={busy} title={session ? 'Create a fresh private demo with new accounts and balances. You will lose access to this sandbox; its history is retained.' : 'Create a private demo tenant with sample accounts and balances.'} onClick={() => void bootstrap(true)}>{session ? 'New sandbox' : 'Start sandbox'}</button></div></div></div>
+    <div className="workspace-top"><div className="workspace-heading"><p className="eyebrow">LIVE DEMO · v0.5.0</p><h2>Ledger workspace</h2><div className="sandbox-line"><p className="workspace-session"><span className={`status-dot ${session ? 'online' : ''}`} />{session ? 'Sandbox ready · private tenant' : error ? 'Sandbox unavailable' : 'Connecting to sandbox…'}</p><button className="secondary" disabled={busy} title={session ? 'Create a fresh private demo with new accounts and balances. You will lose access to this sandbox; its history is retained.' : 'Create a private demo tenant with sample accounts and balances.'} onClick={() => void bootstrap(true)}>{session ? 'New sandbox' : 'Start sandbox'}</button></div></div></div>
     <div className="workspace-controls"><div className="workspace-ledger"><label htmlFor="workspace-ledger">Active ledger</label><select id="workspace-ledger" aria-label="Ledger" aria-describedby="ledger-currency-note" value={ledger} disabled={busy} onChange={e => { setLedger(e.target.value); setTxFilter(''); }}>{ledgers.map(l => <option value={l.id} key={l.id}>{l.name}</option>)}</select></div></div>
     <p className="ledger-currency-note" id="ledger-currency-note"><strong>Demo limitation:</strong> one currency per ledger (USD or EUR). The library supports mixed-currency accounts in one ledger, but each transaction or hold uses one currency. Cross-currency transfers and FX conversion are not available.</p>
     <nav className="tabs" aria-label="Workspace sections">{areas.map(name => <button key={name} aria-current={area === name ? 'page' : undefined} onClick={() => switchArea(name)}>{name}</button>)}</nav>
@@ -218,13 +230,6 @@ export function App() {
       <button className="secondary" disabled={busy} onClick={() => openOperation(scenarios[scenario].steps[step])}>Open current step</button>
       <button className="primary" disabled={busy || step >= scenarios[scenario].steps.length - 1} onClick={() => { const next = step + 1; setStep(next); openOperation(scenarios[scenario].steps[next]); }}>Next step →</button>
       <button className="text-button" onClick={() => setScenario(null)}>Exit guide</button></div></section>}
-
-    {area === 'Overview' && <>
-      <div className="section-intro"><p className="eyebrow">START WITH A REAL FLOW</p><h2>Choose a product flow.</h2><p>Follow a guide or explore freely. Each write uses the published /v1 API.</p></div>
-      <div className="scenario-grid">{scenarios.map((s, i) => <button className="scenario-card" disabled={!session || busy} key={s.name} onClick={() => { setScenario(i); setStep(0); openOperation(s.steps[0]); }}><span className="scenario-number">0{i + 1} <span>↗</span></span><h3>{s.name}</h3><p>{s.summary}</p><small>{s.steps.length} steps · editable requests</small></button>)}</div>
-      <section className="grid"><div className="panel"><div className="panel-title"><h2>Wallet balances</h2><span>{currency}</span></div>{accounts.filter(a => a.name.startsWith('wallet:')).map(a => <article className="account" key={a.id} data-testid={`account-${a.name}`}><strong>{a.name}</strong><b>{money((-BigInt(a.balance_minor)).toString(), currency, scale)}</b></article>)}<button className="secondary" onClick={() => switchArea('Accounts')}>Explore accounts →</button></div>
-        <div className="panel"><p className="eyebrow">HOW TO READ THE DEMO</p><h2>Request → entries → balances</h2><p>This is the platform's ledger: a wallet balance is money owed to its customer, so wallet accounts are CREDIT-normal. A positive entry is a debit; a negative entry is a credit. Debiting a wallet by 25.00 lowers its displayed balance by 25.00.</p><p>Amounts travel as integer strings in minor units. USD and EUR assets use scale 2.</p></div></section>
-    </>}
 
     {area === 'Accounts' && <>
       <section className="panel"><div className="panel-title"><h2>Chart of accounts</h2><span>{accounts.length} accounts · all cursor pages loaded</span></div><div className="account-grid">{accounts.map(a => <button className={`account-card ${selectedAccount === a.id ? 'selected' : ''}`} key={a.id} data-testid={`account-${a.name}`} onClick={() => setSelectedAccount(a.id)}><div><span className="badge">{a.side}</span>{a.grant_enabled && <span className="badge credit">GRANT</span>}</div><h3>{a.name}</h3><b>{money((a.side === 'CREDIT' ? -BigInt(a.balance_minor) : BigInt(a.balance_minor)).toString(), a.currency, scale)}</b><small>{a.overdraft_policy} overdraft</small><code>{a.id}</code></button>)}</div></section>
@@ -283,7 +288,7 @@ export function App() {
       <ReadPanel title="Trial balance" path={`/v1/ledgers/${ledger}/trial-balance`} execute={execute} busy={busy} />
     </>}
 
-    {!['Overview', 'Reports'].includes(area) && <section className="panel workbench"><div className="panel-title"><h2>Operation workbench</h2><span>Real payloads · editable JSON</span></div>
+    {area !== 'Reports' && <section className="panel workbench"><div className="panel-title"><h2>Operation workbench</h2><span>Real payloads · editable JSON</span></div>
       <div className="operation-grid">{operations.filter(o => o.area === area).map(o => <button key={o.id} className={`operation-chip ${preset?.id === o.id ? 'selected' : ''}`} disabled={!session || busy} onClick={() => choose(o)}>{o.title}</button>)}</div>
       {preset && <><div className="workbench-intro"><h3>{preset.title}</h3><p>{preset.help}</p></div><div className="request-editor-line"><select aria-label="Request method" value={draftMethod} onChange={e => setDraftMethod(e.target.value as 'GET' | 'POST')}><option>POST</option><option>GET</option></select><input aria-label="Request path" value={draftPath} onChange={e => setDraftPath(e.target.value)} /></div>
         {draftMethod === 'POST' && <label>Request JSON<textarea aria-label="Request JSON" value={draftBody} onChange={e => setDraftBody(e.target.value)} rows={17} spellCheck={false} /></label>}

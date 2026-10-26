@@ -210,13 +210,15 @@ main { width: min(1440px, calc(100% - 72px)); }
 .hero-proof div { min-height: 86px; padding: 20px 24px; }
 .hero-proof strong { color: #1d2c3e; font-size: 15px; }
 .hero-proof span { font-size: 13px; }
-.credit-spotlight { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(380px, 1.2fr) auto; align-items: center; gap: 32px; margin-top: 16px; padding: 24px 28px; border: 1px solid #d9e3e9; border-radius: 14px; background: #eaf0f4; }
-.credit-spotlight .eyebrow { margin: 0 0 8px; font-size: 10px !important; }
-.credit-spotlight h2 { margin: 0; color: #172c40; font: 500 clamp(24px, 2.4vw, 30px)/1.1 Georgia, serif; letter-spacing: -.03em; }
-.credit-spotlight > p { margin: 0; color: #526579; font-size: 13px; line-height: 1.6; }
-.credit-spotlight > a { color: #24465d; font-size: 13px; font-weight: 750; text-decoration: none; white-space: nowrap; }
-.credit-spotlight > a:hover { text-decoration: underline; }
-.workspace-shell { margin-top: 40px; scroll-margin-top: 24px; }
+.flow-guide { margin-top: 26px; padding: 36px 0 28px; border-top: 1px solid #dce2e8; border-bottom: 1px solid #dce2e8; scroll-margin-top: 24px; }
+.flow-guide-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 26px; }
+.flow-guide-heading .section-intro { max-width: 680px; }
+.flow-guide-heading .eyebrow { margin: 0; }
+.flow-guide-heading > a { padding-bottom: 6px; color: #24465d; font-size: 13px; font-weight: 750; text-decoration: none; white-space: nowrap; }
+.flow-guide-heading > a:hover { text-decoration: underline; }
+.flow-primer { display: flex; align-items: baseline; gap: 22px; margin: 0; padding-top: 18px; border-top: 1px solid #dce2e8; color: #667386; font-size: 12px; line-height: 1.6; }
+.flow-primer strong { flex: none; color: #26394e; }
+.workspace-shell { margin-top: 32px; scroll-margin-top: 24px; }
 .workspace-top { display: block; padding: 0 0 24px; border: 0; border-bottom: 1px solid #dce2e8; }
 .workspace-heading { padding: 0; border: 0; }
 .workspace-heading .eyebrow { margin: 0 0 8px; }
@@ -234,21 +236,21 @@ main { width: min(1440px, calc(100% - 72px)); }
 .tabs button { padding: 13px 0 15px; border-bottom: 2px solid transparent; border-radius: 0; font-size: 14px; }
 .tabs button[aria-current] { background: transparent; color: #172c40; border-bottom-color: #172c40; }
 .tabs button:hover { color: #172c40; }
-.scenario-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+.scenario-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
 .scenario-card { display: flex; flex-direction: column; min-height: 215px; padding: 20px; border-radius: 12px; }
 .scenario-card h3 { margin: 25px 0 8px; font-size: 18px; }
 .scenario-card p { min-height: 0; margin: 0 0 20px; }
 .scenario-card small { margin-top: auto; }
 @media (max-width: 1200px) { .scenario-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1000px) { .credit-spotlight { grid-template-columns: minmax(220px, .8fr) 1.2fr; } .credit-spotlight > a { grid-column: 2; } }
 @media (max-width: 760px) {
   main { width: calc(100% - 32px); }
   .hero { padding: 68px 0 34px; }
   .hero h1 { font-size: clamp(48px, 10vw, 72px); }
   .hero-copy { font-size: 18px; }
   .hero-actions { margin-top: 32px; }
-  .credit-spotlight { grid-template-columns: 1fr; gap: 14px; padding: 22px; }
-  .credit-spotlight > a { grid-column: 1; }
+  .flow-guide { padding: 28px 0 24px; }
+  .flow-guide-heading { align-items: start; flex-direction: column; gap: 12px; }
+  .flow-primer { align-items: start; flex-direction: column; gap: 5px; }
   .workspace-shell { margin-top: 32px; }
   .workspace-ledger { grid-template-columns: minmax(205px, 250px); }
   .tabs { gap: 22px; }
@@ -268,5 +270,7 @@ main { width: min(1440px, calc(100% - 72px)); }
   .workspace-controls { display: block; }
   .workspace-ledger { grid-template-columns: minmax(0, 1fr); }
   .scenario-grid { grid-template-columns: 1fr; }
-  .scenario-card { min-height: 0; }
+  .scenario-card { min-height: 0; padding: 17px 19px; }
+  .scenario-card h3 { margin: 13px 0 6px; }
+  .scenario-card p { margin: 0 0 12px; }
 }

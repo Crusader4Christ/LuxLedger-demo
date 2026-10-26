@@ -1,5 +1,5 @@
 import type { Account, DemoRequest, Json } from './api';
-export type Area = 'Overview' | 'Accounts' | 'Transactions' | 'Holds' | 'Credits' | 'Reconciliation' | 'Reports';
+export type Area = 'Accounts' | 'Transactions' | 'Holds' | 'Credits' | 'Reconciliation' | 'Reports';
 export interface Context { ledger: string; currency: string; accounts: Account[]; tx: string; hold: string; grant: string; upload: string; rule: string; run: string; expirationAsOf: string; }
 export interface Operation { id: string; area: Area; title: string; help: string; build: (c: Context, ref: string) => DemoRequest; }
 type SeedRole = 'funding' | 'primary' | 'secondary' | 'fees' | 'credits' | 'usage';
@@ -60,6 +60,6 @@ export const scenarios = [
   { name: 'Wallet', summary: 'Fund a wallet, pay another customer, retry safely and inspect insufficient funds.', steps: ['fund', 'transfer', 'overdraft'] },
   { name: 'Marketplace', summary: 'Split an order between a seller and platform fees, then correct or reverse it.', steps: ['marketplace', 'reverse', 'transfer', 'correct'] },
   { name: 'Authorization & capture', summary: 'Reserve 25.00, capture 10.00 and release the remaining 15.00.', steps: ['hold', 'commit', 'void'] },
-  { name: 'Prepaid credits', summary: 'Issue lots, reserve capacity, consume, refund and process expiration.', steps: ['grant', 'grant-expiring', 'credit-hold', 'consume', 'refund', 'void', 'expiration-preview', 'expiration-run', 'allocations'] },
+  { name: 'Prepaid credits', summary: 'Issue expiring credit grants, reserve and consume capacity, then refund and expire eligible value.', steps: ['grant', 'grant-expiring', 'credit-hold', 'consume', 'refund', 'void', 'expiration-preview', 'expiration-run', 'allocations'] },
   { name: 'Finance', summary: 'Build matching criteria, import a provider statement and investigate differences.', steps: ['rule', 'upload', 'reconcile-preview', 'reconcile', 'recon-results', 'adjust-credit', 'reconcile'] },
 ];
