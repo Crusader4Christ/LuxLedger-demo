@@ -210,6 +210,12 @@ main { width: min(1440px, calc(100% - 72px)); }
 .hero-proof div { min-height: 86px; padding: 20px 24px; }
 .hero-proof strong { color: #1d2c3e; font-size: 15px; }
 .hero-proof span { font-size: 13px; }
+.credit-spotlight { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(380px, 1.2fr) auto; align-items: center; gap: 32px; margin-top: 16px; padding: 24px 28px; border: 1px solid #d9e3e9; border-radius: 14px; background: #eaf0f4; }
+.credit-spotlight .eyebrow { margin: 0 0 8px; font-size: 10px !important; }
+.credit-spotlight h2 { margin: 0; color: #172c40; font: 500 clamp(24px, 2.4vw, 30px)/1.1 Georgia, serif; letter-spacing: -.03em; }
+.credit-spotlight > p { margin: 0; color: #526579; font-size: 13px; line-height: 1.6; }
+.credit-spotlight > a { color: #24465d; font-size: 13px; font-weight: 750; text-decoration: none; white-space: nowrap; }
+.credit-spotlight > a:hover { text-decoration: underline; }
 .workspace-shell { margin-top: 40px; scroll-margin-top: 24px; }
 .workspace-top { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 0 0 24px; border: 0; border-bottom: 1px solid #dce2e8; }
 .workspace-heading { min-width: 280px; padding: 0; border: 0; }
@@ -233,12 +239,15 @@ main { width: min(1440px, calc(100% - 72px)); }
 .scenario-card p { min-height: 0; margin: 0 0 20px; }
 .scenario-card small { margin-top: auto; }
 @media (max-width: 1200px) { .scenario-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .credit-spotlight { grid-template-columns: minmax(220px, .8fr) 1.2fr; } .credit-spotlight > a { grid-column: 2; } }
 @media (max-width: 760px) {
   main { width: calc(100% - 32px); }
   .hero { padding: 68px 0 34px; }
   .hero h1 { font-size: clamp(48px, 10vw, 72px); }
   .hero-copy { font-size: 18px; }
   .hero-actions { margin-top: 32px; }
+  .credit-spotlight { grid-template-columns: 1fr; gap: 14px; padding: 22px; }
+  .credit-spotlight > a { grid-column: 1; }
   .workspace-shell { margin-top: 32px; }
   .workspace-top { align-items: flex-start; gap: 16px; }
   .workspace-heading { min-width: 0; }
