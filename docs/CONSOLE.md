@@ -1,6 +1,6 @@
 # Interactive console
 
-Run `npm run demo` after the README environment setup. The browser uses the same-origin `/v1` HTTP API. All request amounts are decimal strings in minor units; display uses the provisioned asset scale. USD and EUR use scale 2 and separate default ledgers. There is no implicit FX conversion. **Demo UI limitation:** the interface assumes one currency per ledger and does not support mixed-currency accounts within a ledger. This is a demo constraint, not a library restriction.
+Run `npm run demo` after the README environment setup. The browser uses the same-origin `/v1` HTTP API. All request amounts are decimal strings in minor units; display uses the provisioned asset scale. USD and EUR use scale 2 and separate default ledgers with different seeded accounts and opening balances (Alice: 100.00 USD; Eva: 175.00 EUR). Each transaction or hold uses one currency; there are no cross-currency transfers or FX conversion. **Demo UI limitation:** the interface assumes one currency per ledger and does not support mixed-currency accounts within a ledger. This is a demo constraint, not a library restriction.
 
 ## Workspace
 

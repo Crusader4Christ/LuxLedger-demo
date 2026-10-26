@@ -48,7 +48,7 @@ The browser never receives `BOOTSTRAP_ADMIN_API_KEY` or `JWT_SIGNING_KEY`.
 
 ## Start a guided call
 
-Open the UI in a private window or click **New sandbox**. This creates a private tenant and revokes only this browser's previous service credential; Alice starts at 100.00 and Bob at zero in USD/EUR. Whole-database reset is unnecessary between visitors.
+Open the UI in a private window or click **New sandbox**. This creates a private tenant and revokes only this browser's previous service credential. In the USD ledger Alice starts at 100.00 and Bob at zero; in the EUR ledger Eva starts at 175.00 and Leo at zero. Whole-database reset is unnecessary between visitors.
 
 For a full maintenance reset only, stop visitor traffic and use:
 

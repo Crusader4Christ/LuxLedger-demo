@@ -23,7 +23,7 @@ A JWT is backed by its API-key record. Every authenticated request rechecks that
 - UUIDs are opaque strings. Do not infer ordering from them.
 - Timestamps are RFC 3339/ISO 8601 date-times and are returned in UTC. Send an explicit offset, preferably `Z`; never send a timezone-less local timestamp.
 - Monetary amounts and balances are base-10 **strings in minor units**, avoiding JSON number precision loss. Entry `signed_amount_minor` is positive for DEBIT and negative for CREDIT; for a two-decimal currency, `"1250"` means 12.50 and `"-1250"` means a 12.50 credit. Currency scale is not discovered or converted by this API; integrators own currency metadata and presentation.
-- Currency is an explicit string on accounts, transactions, entries, and holds. The service checks equality; it does not perform FX conversion.
+- Currency is an explicit string on accounts, transactions, entries, and holds. All entries in a transaction or hold must match its currency. Cross-currency transfers and FX conversion are not available.
 - Client transaction and hold `reference` values are tenant-scoped idempotency keys. Repeating the identical payload returns `200` and `created: false`; reusing a reference with a materially changed posting payload returns `400 INVARIANT_VIOLATION`.
 - Supply `x-request-id` for end-to-end correlation. The service echoes it on the response; otherwise it generates a UUID.
 

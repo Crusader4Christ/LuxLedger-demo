@@ -9,6 +9,10 @@ import { RateLimitExceededError } from '../api/errors';
 
 const COOKIE = 'luxledger_sandbox';
 const SESSION_SECONDS = 8 * 60 * 60;
+const sandboxProfiles = {
+  USD: { openingMinor: 10000n, names: { funding: 'system:funding', primary: 'wallet:alice', secondary: 'wallet:bob', fees: 'platform:fees', credits: 'credits:alice', usage: 'service:usage' } },
+  EUR: { openingMinor: 17500n, names: { funding: 'treasury:eu', primary: 'wallet:eva', secondary: 'wallet:leo', fees: 'platform:commission', credits: 'credits:eva', usage: 'service:subscription' } },
+} as const;
 const hash = (value: string) => createHash('sha256').update(value, 'utf8').digest('hex');
 const cookieValue = (request: FastifyRequest) => request.headers.cookie?.split(';')
   .map(part => part.trim()).find(part => part.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1);
@@ -63,26 +67,27 @@ export function registerSandbox(server: FastifyInstance, db: DbClient, services:
       return created;
     });
     try {
-      for (const code of ['USD', 'EUR']) {
+      for (const code of ['USD', 'EUR'] as const) {
+        const profile = sandboxProfiles[code];
         await services.assets.create({ tenantId: row.tenant_id, code, scale: 2 });
         const ledger = await services.ledgers.create({ tenantId: row.tenant_id, name: `${code} product ledger` });
         const accounts: Record<string, string> = {};
-        for (const [name, side, policy, grant] of [
-          ['system:funding', AccountSide.DEBIT, OverdraftPolicy.ALLOW, false],
-          ['wallet:alice', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
-          ['wallet:bob', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
-          ['platform:fees', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
-          ['credits:alice', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, true],
-          ['service:usage', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
+        for (const [role, side, policy, grant] of [
+          ['funding', AccountSide.DEBIT, OverdraftPolicy.ALLOW, false],
+          ['primary', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
+          ['secondary', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
+          ['fees', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
+          ['credits', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, true],
+          ['usage', AccountSide.CREDIT, OverdraftPolicy.DISALLOW, false],
         ] as const) {
-          const account = await services.accounts.create({ tenantId: row.tenant_id, ledgerId: ledger.id, name, side, overdraftPolicy: policy, grantEnabled: grant, currency: code });
-          accounts[name] = account.id;
+          const account = await services.accounts.create({ tenantId: row.tenant_id, ledgerId: ledger.id, code: `DEMO_${role.toUpperCase()}`, name: profile.names[role], side, overdraftPolicy: policy, grantEnabled: grant, currency: code });
+          accounts[role] = account.id;
         }
         await services.transactions.create({ tenantId: row.tenant_id, ledgerId: ledger.id,
           reference: `sandbox-${code}-opening`, currency: code, description: 'Opening wallet funding',
-          metadata: { scenario: 'wallet', provider: { payment_id: 'pay_opening_001' } },
-          entries: [{ accountId: accounts['system:funding'], signedAmountMinor: 10000n, currency: code },
-            { accountId: accounts['wallet:alice'], signedAmountMinor: -10000n, currency: code }] });
+          metadata: { scenario: 'wallet', provider: { payment_id: `pay_opening_${code.toLowerCase()}` } },
+          entries: [{ accountId: accounts.funding, signedAmountMinor: profile.openingMinor, currency: code },
+            { accountId: accounts.primary, signedAmountMinor: -profile.openingMinor, currency: code }] });
       }
     } catch (error) {
       await db.sql`update api_keys set revoked_at = now() where id = ${row.api_key_id}`;

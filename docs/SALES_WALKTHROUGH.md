@@ -1,6 +1,6 @@
 # Console walkthrough
 
-1. Open the console and click **New sandbox**. Each visitor receives a separate tenant; Alice starts with 100.00 in USD and EUR. Keep credentials and environment files out of the presentation.
+1. Open the console and click **New sandbox**. Each visitor receives a separate tenant; Alice starts with 100.00 USD, while Eva starts with 175.00 EUR in a separate ledger. Keep credentials and environment files out of the presentation.
 2. Open **Transactions**, transfer 25.00, and inspect the debit/credit entries. In **Accounts**, Alice has 75.00 and Bob 25.00. Repeat the exact request in the journal: same transaction ID, `created: false`, no duplicate money movement.
 3. Return to **Overview**, start **Authorization & capture**, reserve 25.00, capture 10.00, and void the remainder. Compare posted and available balances in Accounts.
 4. Start **Prepaid credits** to show grants, consumption provenance, refund restrictions, and expiration. The short-lived lot expires after 15 seconds. Preview can use a future boundary; run requires a boundary no later than database time.

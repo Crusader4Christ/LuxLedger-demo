@@ -115,11 +115,13 @@ export function App() {
     ]);
     if (version !== refreshVersion.current) return;
     setAccounts(a); setTransactions(t.data); setTxCursor(t.next_cursor); setHolds(h.data); setHoldCursor(h.next_cursor);
-    setSelectedAccount(old => a.some(x => x.id === old) ? old : a.find(x => x.name === 'wallet:alice')?.id ?? a[0]?.id ?? '');
+    setSelectedAccount(old => a.some(x => x.id === old) ? old : a.find(x => x.code === 'DEMO_PRIMARY' || x.name === 'wallet:alice')?.id ?? a[0]?.id ?? '');
+    setFrom(old => a.some(x => x.name === old) ? old : a.find(x => x.code === 'DEMO_PRIMARY' || x.name === 'wallet:alice')?.name ?? '');
+    setTo(old => a.some(x => x.name === old) ? old : a.find(x => x.code === 'DEMO_SECONDARY' || x.name === 'wallet:bob')?.name ?? '');
     return a;
   }, [ledger, txFilter]);
   refreshRef.current = refresh;
-  useEffect(() => { setAccounts([]); setTransactions([]); setHolds([]); setBalance(null); setIds(initialIds); setExpirationAsOf(''); setSelectedTx(null); setTxEntries([]); setPreset(null); setBeforeAfter(null); setLastSent(null); }, [ledger]);
+  useEffect(() => { setAccounts([]); setTransactions([]); setHolds([]); setBalance(null); setIds(initialIds); setExpirationAsOf(''); setSelectedTx(null); setTxEntries([]); setPreset(null); setBeforeAfter(null); setLastSent(null); setReference(ref()); }, [ledger]);
   useEffect(() => { void refresh().catch(e => setError(describe(e))); }, [refresh]);
   useEffect(() => {
     setBalance(null); if (!selectedAccount) return;
@@ -190,9 +192,9 @@ export function App() {
     const result = await execute({ method: 'GET', path: query('/v1/transactions', { ledger_id: ledger, limit: 10, cursor: txCursor, ...(txFilter ? { where: pretty({ reference: { eq: txFilter } }) } : {}) }) });
     if (result) { const page = result as unknown as Page<Transaction>; setTransactions(old => [...old, ...page.data]); setTxCursor(page.next_cursor); }
   };
-  const walletAccounts = accounts.filter(a => !a.grant_enabled);
+  const walletAccounts = accounts.filter(a => a.name.startsWith('wallet:') && !a.grant_enabled);
   const availableAccount = accounts.find(a => a.id === selectedAccount);
-  const baseCreditAccount = accounts.find(a => a.name === 'credits:alice')?.id ?? selectedAccount;
+  const baseCreditAccount = accounts.find(a => a.code === 'DEMO_CREDITS' || a.name === 'credits:alice')?.id ?? selectedAccount;
   const reportQuery = { from: reportFrom, as_of: reportAsOf, limit: 25 };
 
   return <main>
@@ -209,7 +211,7 @@ export function App() {
     {error && <div className="error" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>}
     <div className="workspace-top"><div className="workspace-heading"><p className="eyebrow">LIVE DEMO · v0.5.0</p><h2>Product ledger console</h2><div className="sandbox-line"><p className="workspace-session"><span className={`status-dot ${session ? 'online' : ''}`} />{session ? 'Sandbox ready · private tenant' : error ? 'Sandbox unavailable' : 'Connecting to sandbox…'}</p><button className="secondary" disabled={busy} title={session ? 'Create a fresh private demo with new accounts and balances. You will lose access to this sandbox; its history is retained.' : 'Create a private demo tenant with sample accounts and balances.'} onClick={() => void bootstrap(true)}>{session ? 'New sandbox' : 'Start sandbox'}</button></div></div></div>
     <div className="workspace-controls"><div className="workspace-ledger"><label htmlFor="workspace-ledger">Active ledger</label><select id="workspace-ledger" aria-label="Ledger" aria-describedby="ledger-currency-note" value={ledger} disabled={busy} onChange={e => { setLedger(e.target.value); setTxFilter(''); }}>{ledgers.map(l => <option value={l.id} key={l.id}>{l.name}</option>)}</select></div></div>
-    <p className="ledger-currency-note" id="ledger-currency-note"><strong>Demo limitation:</strong> one currency per ledger (USD or EUR). Mixed-currency accounts are supported by the library but are not shown here.</p>
+    <p className="ledger-currency-note" id="ledger-currency-note"><strong>Demo limitation:</strong> one currency per ledger (USD or EUR). The library supports mixed-currency accounts in one ledger, but each transaction or hold uses one currency. Cross-currency transfers and FX conversion are not available.</p>
     <nav className="tabs" aria-label="Workspace sections">{areas.map(name => <button key={name} aria-current={area === name ? 'page' : undefined} onClick={() => switchArea(name)}>{name}</button>)}</nav>
 
     {scenario !== null && <section className="scenario-banner"><div><span className="eyebrow">GUIDED SCENARIO · {step + 1}/{scenarios[scenario].steps.length}</span><h2>{scenarios[scenario].name}</h2><p>{operations.find(o => o.id === scenarios[scenario].steps[step])?.help}</p></div><div className="actions">
@@ -221,7 +223,7 @@ export function App() {
       <div className="section-intro"><p className="eyebrow">START WITH A REAL FLOW</p><h2>Choose a product flow.</h2><p>Follow a guide or explore freely. Each write uses the published /v1 API.</p></div>
       <div className="scenario-grid">{scenarios.map((s, i) => <button className="scenario-card" disabled={!session || busy} key={s.name} onClick={() => { setScenario(i); setStep(0); openOperation(s.steps[0]); }}><span className="scenario-number">0{i + 1} <span>↗</span></span><h3>{s.name}</h3><p>{s.summary}</p><small>{s.steps.length} steps · editable requests</small></button>)}</div>
       <section className="grid"><div className="panel"><div className="panel-title"><h2>Wallet balances</h2><span>{currency}</span></div>{accounts.filter(a => a.name.startsWith('wallet:')).map(a => <article className="account" key={a.id} data-testid={`account-${a.name}`}><strong>{a.name}</strong><b>{money((-BigInt(a.balance_minor)).toString(), currency, scale)}</b></article>)}<button className="secondary" onClick={() => switchArea('Accounts')}>Explore accounts →</button></div>
-        <div className="panel"><p className="eyebrow">HOW TO READ THE DEMO</p><h2>Request → entries → balances</h2><p>This is the platform's ledger: a wallet balance is money owed to its customer, so wallet accounts are CREDIT-normal. A positive entry is a debit; a negative entry is a credit. Debiting Alice's wallet by 25.00 lowers her displayed balance by 25.00.</p><p>Amounts travel as integer strings in minor units. USD and EUR assets use scale 2.</p></div></section>
+        <div className="panel"><p className="eyebrow">HOW TO READ THE DEMO</p><h2>Request → entries → balances</h2><p>This is the platform's ledger: a wallet balance is money owed to its customer, so wallet accounts are CREDIT-normal. A positive entry is a debit; a negative entry is a credit. Debiting a wallet by 25.00 lowers its displayed balance by 25.00.</p><p>Amounts travel as integer strings in minor units. USD and EUR assets use scale 2.</p></div></section>
     </>}
 
     {area === 'Accounts' && <>
