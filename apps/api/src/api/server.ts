@@ -2,6 +2,9 @@ import '@api/fastify-extensions';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import swaggerUiDist from 'swagger-ui-dist';
+import { parse as parseYaml } from 'yaml';
 import { issueAccessToken, type JwtAuthConfig, verifyAccessToken } from '@api/auth/jwt';
 import { RateLimitExceededError, sendDomainError } from '@api/errors';
 import { ApiMetrics } from '@api/observability/metrics';
@@ -24,24 +27,71 @@ const TOKEN_ENDPOINT = '/v1/auth/token';
 const V1_ROUTE_PREFIX = '/v1/';
 const OPENAPI_SPEC_PATH = fileURLToPath(new URL('../../../../openapi/openapi.yaml', import.meta.url));
 const OPENAPI_SPEC_CONTENT = readFileSync(OPENAPI_SPEC_PATH, 'utf8');
+const SWAGGER_SPEC = parseYaml(OPENAPI_SPEC_CONTENT);
+// Presentation-only grouping and same-origin server URL. The downloadable YAML stays canonical.
+SWAGGER_SPEC.servers = [{ url: '/' }];
+const ROUTE_TAGS: Record<string, string> = { ledgers: 'Ledgers', accounts: 'Accounts', transactions: 'Transactions',
+  entries: 'Entries', holds: 'Holds', 'credit-grants': 'Credit grants', adjustments: 'Adjustments',
+  reconciliation: 'Reconciliation', admin: 'Administration', auth: 'Authentication' };
+for (const [path, methods] of Object.entries(SWAGGER_SPEC.paths) as [string, Record<string, { tags?: string[] }>][]) {
+  for (const method of ['get', 'post']) if (methods[method]) methods[method].tags = [ROUTE_TAGS[path.split('/')[2]] ?? 'Operations'];
+}
 const SWAGGER_UI_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LuxLedger API Docs</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <link rel="stylesheet" href="/docs/swagger-ui.css" />
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="/docs/swagger-ui-bundle.js"></script>
     <script>
       window.ui = SwaggerUIBundle({
-        url: '/openapi.yaml',
+        url: '/demo/contract',
         dom_id: '#swagger-ui',
         deepLinking: true,
         defaultModelsExpandDepth: 1,
-        docExpansion: 'list'
+        docExpansion: 'list',
+        filter: new URLSearchParams(location.search).get('filter') || true,
+        validatorUrl: null,
+        persistAuthorization: false,
+        requestInterceptor: async function(request) {
+          if (request.method !== 'GET') window.demoApiRequest = {
+            method: request.method, path: new URL(request.url, location.origin).pathname + new URL(request.url, location.origin).search,
+            ...(request.body ? { body: JSON.parse(request.body) } : {})
+          };
+          window.demoApiStarted = performance.now();
+          if (new URLSearchParams(location.search).get('demo') !== '1') return request;
+          const target = new URL(request.url, location.origin);
+          if (target.origin !== location.origin) throw new Error('Demo credentials are restricted to this origin');
+          if (target.pathname.startsWith('/v1/') && target.pathname !== '/v1/auth/token') {
+            const response = await fetch('/demo/session', { credentials: 'same-origin' });
+            if (!response.ok) throw new Error('Demo session expired. Start a new sandbox.');
+            const session = await response.json();
+            request.headers.Authorization = 'Bearer ' + session.access_token;
+          }
+          window.demoApiRequest = { method: request.method, path: target.pathname + target.search,
+            ...(request.body ? { body: JSON.parse(request.body) } : {}) };
+          return request;
+        },
+        responseInterceptor: function(response) {
+          if (new URLSearchParams(location.search).get('demo') === '1' && window.demoApiRequest && parent !== window) {
+            let body = response.obj || response.text || null;
+            // Do not send tokens or newly created raw API keys to the parent's journal.
+            if (body && typeof body === 'object') {
+              body = { ...body };
+              if ('access_token' in body) body.access_token = '[redacted]';
+              if ('api_key' in body) body.api_key = '[redacted]';
+            }
+            parent.postMessage({ type: 'luxledger-api-response', record: {
+              request: window.demoApiRequest, status: response.status, response: body,
+              duration: Math.round(performance.now() - window.demoApiStarted), requestId: response.headers['x-request-id'] || null
+            } }, location.origin);
+          }
+          return response;
+        }
       });
     </script>
   </body>
@@ -179,6 +229,17 @@ export const createServerCore = (options: CreateServerCoreOptions): FastifyInsta
       .status(200)
       .send(OPENAPI_SPEC_CONTENT);
   });
+
+  server.get('/demo/contract', async (_request, reply) => reply
+    .header('cache-control', 'public, max-age=300').send(SWAGGER_SPEC));
+
+  for (const [asset, contentType] of [
+    ['swagger-ui.css', 'text/css'], ['swagger-ui-bundle.js', 'application/javascript'],
+  ] as const) {
+    const content = readFileSync(join(swaggerUiDist.getAbsoluteFSPath(), asset));
+    server.get(`/docs/${asset}`, async (_request, reply) => reply
+      .header('content-type', contentType).header('cache-control', 'public, max-age=86400').send(content));
+  }
 
   server.get('/docs', async (_request, reply) => {
     return reply

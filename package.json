@@ -23,11 +23,13 @@
     "seed:demo:local": "node --env-file=.env --import tsx apps/api/src/seed-demo.ts",
     "reset:demo": "npm run reset:demo -w @luxledger/demo-api",
     "build": "npm run build --workspaces --if-present",
-    "verify:openapi": "node scripts/verify-openapi.mjs",
+    "verify:openapi": "node scripts/verify-openapi.mjs && node scripts/generate-api-types.mjs --check",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:integration": "node tests/integration/demo-api.test.mjs",
     "test:e2e": "node scripts/prepare-test-db.mjs && playwright test",
-    "test": "npm run test:unit && npm run verify:openapi && npm run typecheck && npm run build && npm run test:integration && npm run test:e2e"
+    "test": "npm run test:unit && npm run verify:openapi && npm run verify:schema && npm run typecheck && npm run build && npm run test:integration && npm run test:e2e",
+    "generate:api": "node scripts/generate-api-types.mjs",
+    "verify:schema": "node --import tsx scripts/verify-schema.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

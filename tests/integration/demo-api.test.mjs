@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import postgres from 'postgres';
+import { testSandbox } from './sandbox-api.test.mjs';
 
 const databaseUrl = process.env.DATABASE_URL_TEST ??
   'postgresql://luxledger:luxledger@127.0.0.1:5433/luxledger_demo_test';
@@ -165,6 +166,7 @@ try {
   assert.ok(released.holds.every(hold => hold.state === 'VOIDED'));
   assert.equal((await json('/demo/accounts/wallet:alice/details')).available_minor, '10000');
   console.log('Demo API integration flow passed');
+  await testSandbox(apiUrl, databaseUrl);
 } finally {
   api.kill('SIGTERM');
   await new Promise((resolve) => api.once('exit', resolve));

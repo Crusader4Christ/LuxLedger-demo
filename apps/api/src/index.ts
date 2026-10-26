@@ -3,6 +3,7 @@ import { parseRateLimitConfig } from '@api/rate-limit/policy';
 import { createServerCore, registerApplication } from '@api/server';
 import { DemoService } from './demo/demo-service';
 import { registerDemoRoutes } from './demo/routes';
+import { registerSandbox } from './demo/sandbox';
 import { isMainModule } from './utils/is-main-module';
 import { createApplicationServices, createDbClient } from '@luxledger/postgres-adapter';
 
@@ -55,7 +56,8 @@ export const run = async (): Promise<void> => {
     tenantName: process.env.BOOTSTRAP_TENANT_NAME ?? 'Demo tenant',
     resetEnabled,
   });
-  registerDemoRoutes(server, demo, { resetEnabled });
+  if (resetEnabled) registerDemoRoutes(server, demo, { resetEnabled });
+  registerSandbox(server, dbClient, services, parseJwtAuthConfig(process.env));
   const port = parsePort(process.env.PORT);
   const shutdownTimeoutMs = parseShutdownTimeout(process.env.SHUTDOWN_TIMEOUT_MS);
 

@@ -11,7 +11,7 @@ The demo reads process environment directly. Node forbids `--env-file` in `NODE_
 | `DB_POOL_MAX` | `10` | Positive integer maximum connections in the process-local PostgreSQL pool. |
 | `DB_IDLE_TIMEOUT` | `20` | Positive integer idle connection timeout in seconds. |
 | `DB_CONNECT_TIMEOUT` | `10` | Positive integer connection timeout in seconds. |
-| `NODE_ENV` | `development` in example | `production` disables the browser-accessible demo reset route. |
+| `NODE_ENV` | `development` in example | `production` disables legacy shared `/demo/*` product routes. Private `/demo/session` sandboxes remain available. |
 | `PORT` | `3000` | Positive integer; server binds `0.0.0.0`. |
 | `SHUTDOWN_TIMEOUT_MS` | `10000` | Positive integer hard deadline for graceful shutdown. |
 | `JWT_SIGNING_KEY` | **Required** | Unpadded base64url encoding of at least 32 random bytes. Secret. |
@@ -47,7 +47,7 @@ GET requests are not limited by the demo limiter. Counters are neither shared no
 | `GET /ready` | None | Runs `select 1`; 200 when PostgreSQL is reachable, otherwise 503. |
 | `GET /metrics` | None | Prometheus text exposition from this process. |
 | `GET /openapi.yaml` | None | Checked-in API contract. |
-| `GET /docs` | None | Swagger UI; browser downloads UI assets from `unpkg.com`. |
+| `GET /docs` | None | Locally bundled Swagger UI; no CDN. `?demo=1` uses the active sandbox credential. |
 
 Metrics include request totals and duration histograms labeled by route/status, authentication failures, and token-issuance failures. The registry is process-local and resets on restart. These endpoints are unauthenticated; restrict them at the network/ingress layer when needed.
 
@@ -108,3 +108,15 @@ Before production use, threat-model the deployment, pin exact package versions, 
 For a private, single-instance sales environment, use the narrower
 [hosted demo runbook](HOSTED_DEMO.md). It keeps reset out of the public HTTP surface and packages
 the existing MVP without claiming production SaaS readiness.
+
+## Private sandbox lifecycle
+
+`POST /demo/session` provisions an isolated tenant with two assets/ledgers and returns a short-lived SERVICE bearer. A random 256-bit session credential is set as HttpOnly, SameSite=Strict cookie; only its SHA-256 hash is persisted. TLS ingress supplies `X-Forwarded-Proto: https` so the cookie is Secure. No raw library API key is exposed. `GET /demo/session` refreshes the bearer until the fixed eight-hour session boundary; the API rejects sandbox bearer use after that boundary as well.
+
+New sandbox creation is limited to 20 per source IP per hour per process. Financial writes retain the existing `/v1` limiter. Because forwarded-IP trust is not configured here, visitors behind nginx share the proxy's rate-limit bucket; configure ingress limits / trusted proxy settings before widening access. Browser Origin / Fetch Metadata checks reject cross-site session creation.
+
+Creating a replacement sandbox revokes only its previous service key. It does not mutate another visitor's tenant. The host-only `/demo/session/holds` read uses explicit tenant/ledger scope and a transaction-local RLS tenant setting. All financial mutations use the public library services/routes.
+
+Expired/replaced tenant histories are retained. Session expiry controls access, not storage retention. Use a dedicated demo database and the guarded operator reset only during maintenance when all sessions may be discarded; immutable financial history must not be pruned with ad hoc deletes. Back up the database before upgrades. Migrations 0005–0007 are upstream 0.5.0 grant index/refund support; 0008 adds the host session table.
+
+`npm run verify:schema` compares the installed library plus host Drizzle model with the checked-in snapshot. `npm run generate:api` regenerates frontend DTO types after an intentional contract update. Neither changes the downloaded canonical YAML.

@@ -7,6 +7,7 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5174,
     proxy: {
+      '/v1': 'http://127.0.0.1:3100',
       '/demo': 'http://127.0.0.1:3100',
       '/docs': 'http://127.0.0.1:3100',
       '/openapi.yaml': 'http://127.0.0.1:3100',

@@ -1,73 +1,12 @@
-# Five-Minute Sales Walkthrough
+# Console walkthrough
 
-## Before the call
+1. Open the console and click **New sandbox**. Each visitor receives a separate tenant; Alice starts with 100.00 in USD and EUR. Keep credentials and environment files out of the presentation.
+2. Open **Transactions**, transfer 25.00, and inspect the debit/credit entries. In **Accounts**, Alice has 75.00 and Bob 25.00. Repeat the exact request in the journal: same transaction ID, `created: false`, no duplicate money movement.
+3. Return to **Overview**, start **Authorization & capture**, reserve 25.00, capture 10.00, and void the remainder. Compare posted and available balances in Accounts.
+4. Start **Prepaid credits** to show grants, consumption provenance, refund restrictions, and expiration. The short-lived lot expires after 15 seconds. Preview can use a future boundary; run requires a boundary no later than database time.
+5. Start **Finance** to create rules and upload provider records. Show matched, unmatched and mismatched results, server-side filtering, and audited adjustments. Use Reports for bounded statements and trial balance.
+6. Open **API docs**, expand an endpoint and use Try it out. Clear prefilled example filters to list all data. Swagger uses the same private SERVICE token and displays its own request and response. Download the canonical OpenAPI for external integration.
 
-1. Run the operator reset from [HOSTED_DEMO.md](HOSTED_DEMO.md).
-2. Confirm `/ready` returns `{"ok":true}`.
-3. Open the UI and keep `/docs` available in a second tab.
+The browser calls `/v1` directly. Financial behavior belongs to the released library and PostgreSQL adapter; the host owns private session provisioning, demo assets, and a labelled hold-list read. Administrative endpoints correctly return 403 for sandbox SERVICE credentials.
 
-Do not show `.env.hosted`, raw API keys, JWT signing keys, or container environment output.
-
-## Story
-
-### 1. Start with the product boundary — 30 seconds
-
-“LuxLedger is an embeddable double-entry ledger. This small application is an ordinary Fastify
-and React product built from the published LuxLedger packages.”
-
-Point out that the UI uses product-level addresses such as `wallet:alice`; it does not need to
-understand database tables or ledger internals.
-
-### 2. Show deterministic starting state — 30 seconds
-
-Alice has USD 100.00 and Bob has USD 0.00. Explain that the hidden system funding account keeps
-the opening transaction balanced.
-
-### 3. Transfer USD 25.00 — 90 seconds
-
-Choose Alice as source, Bob as destination, enter `25.00`, and submit.
-
-Expected result:
-
-- Alice: USD 75.00;
-- Bob: USD 25.00;
-- one LuxLedger transaction;
-- one USD 25.00 debit and one USD 25.00 credit.
-
-Scroll to “Request sent by this UI.” Show the JSON payload, then use **Copy curl** to demonstrate
-that the same product action can be reproduced from a terminal.
-
-### 4. Explain the backend — 90 seconds
-
-Open the source or architecture diagram and show the composition:
-
-- `@luxledger/core` enforces financial invariants;
-- `@luxledger/postgres-adapter` persists the atomic transaction;
-- `@luxledger/fastify-routes` exposes the canonical OpenAPI routes;
-- the demo service maps wallet addresses to account IDs;
-- the administrative API key never reaches the browser.
-
-### 5. Show the integration surface — 60 seconds
-
-Use the **API docs** link to open `/docs`. Emphasize typed HTTP contracts, idempotent transaction references, tenant
-isolation, health/readiness, structured logs, and PostgreSQL transactions.
-
-Optionally reserve another USD 25.00 in Operator view. Show that posted balances stay unchanged
-while available funds decrease, then commit or void the hold and inspect its history events.
-Switch to Finance to show the trial balance and reconcile the default opening statement record.
-Use `99.00` to show a mismatch. The mode selector changes presentation; hosted access control
-still protects the shared demo. Customer identity and a hosted administration console remain
-follow-up scope.
-
-## Qualification questions
-
-- What event in your product should create a ledger transaction?
-- Which balances must be available synchronously?
-- Do you already have account/address identifiers?
-- What are your idempotency and audit requirements?
-- Would the first pilot run embedded in your backend or as a separately deployed service?
-
-## Close
-
-Offer a narrow pilot: map one real business event to a balanced LuxLedger transaction, import a
-small representative dataset, and verify balances and audit entries with the customer.
+For a partner discussion, map one real business event to a balanced transaction, identify the available balances it needs, and agree how references and provider IDs map into the API. Follow [HOSTED_DEMO.md](HOSTED_DEMO.md) for private deployment and [CONSOLE.md](CONSOLE.md) for all scenarios.

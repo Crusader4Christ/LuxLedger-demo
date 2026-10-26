@@ -20,10 +20,13 @@
     "drizzle-orm": "0.45.2",
     "fastify": "5.10.0",
     "postgres": "3.4.8",
-    "safe-stable-stringify": "^2.5.0"
+    "safe-stable-stringify": "^2.5.0",
+    "swagger-ui-dist": "^5.34.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "22.12.0",
+    "@types/swagger-ui-dist": "^3.30.6",
     "drizzle-kit": "0.31.10",
     "tsx": "4.21.0",
     "typescript": "5.9.3"
