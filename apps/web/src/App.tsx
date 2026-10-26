@@ -203,7 +203,7 @@ export function App() {
       <div className="hero-actions"><a className="button-link primary" href="#workspace">Try the live demo</a><a className="button-link secondary" href="mailto:herman.klushin@gmail.com?subject=LuxLedger%20design%20partnership">Become a design partner</a></div>
       <p className="hero-note">Built for Node.js teams · PostgreSQL-backed · Framework-agnostic core</p>
     </section>
-    <div className="proof-strip hero-proof"><div><strong>Atomic</strong><span>double-entry posting</span></div><div><strong>Idempotent</strong><span>transaction references</span></div><div><strong>Auditable</strong><span>reversals and corrections</span></div><div><strong>Portable</strong><span>Fastify and Express adapters</span></div></div>
+    <div className="proof-strip hero-proof"><div><strong>Atomic</strong><span>postings, holds and bulk rollback</span></div><div><strong>Idempotent</strong><span>safe retries by reference</span></div><div><strong>Auditable</strong><span>reversals, history and statements</span></div><div><strong>Reconciled</strong><span>provider matching and reports</span></div></div>
     <section className="workspace-shell" id="workspace" aria-label="Live demo workspace">
     {error && <div className="error" role="alert">{error}<button aria-label="Dismiss error" onClick={() => setError(null)}>×</button></div>}
     <div className="workspace-top"><div className="workspace-heading"><p className="eyebrow">LIVE DEMO · v0.5.0</p><h2>Product ledger console</h2></div><p className="workspace-session"><span className={`status-dot ${session ? 'online' : ''}`} />{session ? 'Private sandbox · 8 hours' : 'Connecting to your sandbox…'}</p></div>
